@@ -32,7 +32,9 @@
       "package": "com.clickecommerce.clicknotetaker",
       "permissions": [
         "android.permission.RECORD_AUDIO",
-        "android.permission.USE_BIOMETRIC"
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
       ],
       "blockedPermissions": [
         "android.permission.READ_EXTERNAL_STORAGE",
@@ -68,6 +70,12 @@
           "backgroundColor": "#2C5282"
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "bcee509b-61b8-45c8-acfa-9e1eca4290a0"
+      }
+    },
+    "owner": "yolodating"
   }
 }
