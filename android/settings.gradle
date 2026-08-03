@@ -1,4 +1,4 @@
-rootProject.name = 'ClickNoteTaker'
+rootProject.name = 'Click Note Taker'
 
 dependencyResolutionManagement {
   versionCatalogs {

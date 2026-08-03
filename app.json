@@ -3,7 +3,10 @@
     "name": "Click Note Taker",
     "slug": "click-note-taker",
     "version": "1.1.0",
-    "platforms": ["ios", "android"],
+    "platforms": [
+      "ios",
+      "android"
+    ],
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -35,6 +38,11 @@
       "permissions": [
         "android.permission.RECORD_AUDIO",
         "android.permission.USE_BIOMETRIC"
+      ],
+      "blockedPermissions": [
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.SYSTEM_ALERT_WINDOW"
       ]
     },
     "plugins": [
@@ -43,7 +51,8 @@
         {
           "faceIDPermission": "Allow Click Note Taker to use Face ID to unlock the app."
         }
-      ]
+      ],
+      "expo-secure-store"
     ]
   }
 }
