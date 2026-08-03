@@ -1,4 +1,4 @@
-import * as SQLite from 'expo-sqlite/next';
+import * as SQLite from 'expo-sqlite';
 import { runMigrations } from './migrations';
 
 let db: SQLite.SQLiteDatabase | null = null;
