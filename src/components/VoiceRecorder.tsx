@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
-import { Audio } from 'expo-av';
+import { AudioModule, RecordingPresets, setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus, useAudioRecorder, useAudioRecorderState } from 'expo-audio';
 import { COLORS, TYPOGRAPHY, SPACING } from '../constants';
 
 interface VoiceRecorderProps {
@@ -14,27 +14,22 @@ export function VoiceRecorder({
   onTranscriptChange,
   existingAudioUri,
 }: VoiceRecorderProps) {
-  const [recording, setRecording] = useState<Audio.Recording | null>(null);
-  const [sound, setSound] = useState<Audio.Sound | null>(null);
-  const [isRecording, setIsRecording] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
   const [hasRecording, setHasRecording] = useState(!!existingAudioUri);
   const [currentUri, setCurrentUri] = useState<string | undefined>(existingAudioUri);
-  const [permissionResponse, setPermissionResponse] = useState<Audio.PermissionResponse | null>(null);
+  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
+  const recorder = useAudioRecorder({ ...RecordingPresets.HIGH_QUALITY, directory: 'document' });
+  const recorderState = useAudioRecorderState(recorder, 500);
+  const player = useAudioPlayer(currentUri ?? null);
+  const playerStatus = useAudioPlayerStatus(player);
 
   useEffect(() => {
     checkPermissions();
-    return () => {
-      if (sound) {
-        sound.unloadAsync();
-      }
-    };
   }, []);
 
   useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (isRecording) {
+    let interval: ReturnType<typeof setInterval>;
+    if (recorderState.isRecording) {
       interval = setInterval(() => {
         setRecordingDuration(prev => prev + 1);
       }, 1000);
@@ -42,12 +37,12 @@ export function VoiceRecorder({
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [isRecording]);
+  }, [recorderState.isRecording]);
 
   const checkPermissions = async () => {
     try {
-      const response = await Audio.getPermissionsAsync();
-      setPermissionResponse(response);
+      const response = await AudioModule.getRecordingPermissionsAsync();
+      setHasPermission(response.granted);
     } catch (error) {
       console.error('Error checking permissions:', error);
     }
@@ -55,8 +50,8 @@ export function VoiceRecorder({
 
   const requestPermissions = async (): Promise<boolean> => {
     try {
-      const response = await Audio.requestPermissionsAsync();
-      setPermissionResponse(response);
+      const response = await AudioModule.requestRecordingPermissionsAsync();
+      setHasPermission(response.granted);
       return response.granted;
     } catch (error) {
       console.error('Error requesting permissions:', error);
@@ -66,7 +61,7 @@ export function VoiceRecorder({
 
   const startRecording = async () => {
     try {
-      if (!permissionResponse?.granted) {
+      if (!hasPermission) {
         const granted = await requestPermissions();
         if (!granted) {
           Alert.alert(
@@ -78,17 +73,12 @@ export function VoiceRecorder({
         }
       }
 
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
+      await setAudioModeAsync({
+        allowsRecording: true,
+        playsInSilentMode: true,
       });
-
-      const { recording: newRecording } = await Audio.Recording.createAsync(
-        Audio.RecordingOptionsPresets.HIGH_QUALITY
-      );
-
-      setRecording(newRecording);
-      setIsRecording(true);
+      await recorder.prepareToRecordAsync();
+      recorder.record();
       setRecordingDuration(0);
     } catch (error) {
       console.error('Failed to start recording:', error);
@@ -97,17 +87,12 @@ export function VoiceRecorder({
   };
 
   const stopRecording = async () => {
-    if (!recording) return;
-
     try {
-      setIsRecording(false);
-      await recording.stopAndUnloadAsync();
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: false,
+      await recorder.stop();
+      await setAudioModeAsync({
+        allowsRecording: false,
       });
-
-      const uri = recording.getURI();
-      setRecording(null);
+      const uri = recorder.uri;
 
       if (uri) {
         setCurrentUri(uri);
@@ -130,23 +115,9 @@ export function VoiceRecorder({
     if (!currentUri) return;
 
     try {
-      if (sound) {
-        await sound.unloadAsync();
-      }
-
-      const { sound: newSound } = await Audio.Sound.createAsync(
-        { uri: currentUri },
-        { shouldPlay: true }
-      );
-
-      setSound(newSound);
-      setIsPlaying(true);
-
-      newSound.setOnPlaybackStatusUpdate((status) => {
-        if (status.isLoaded && status.didJustFinish) {
-          setIsPlaying(false);
-        }
-      });
+      player.replace(currentUri);
+      await player.seekTo(0);
+      player.play();
     } catch (error) {
       console.error('Failed to play recording:', error);
       Alert.alert('Error', 'Failed to play recording.');
@@ -154,10 +125,8 @@ export function VoiceRecorder({
   };
 
   const stopPlayback = async () => {
-    if (sound) {
-      await sound.stopAsync();
-      setIsPlaying(false);
-    }
+    player.pause();
+    await player.seekTo(0);
   };
 
   const deleteRecording = () => {
@@ -192,7 +161,7 @@ export function VoiceRecorder({
       <Text style={styles.label}>Voice Recording</Text>
       
       <View style={styles.controls}>
-        {!isRecording && !hasRecording && (
+        {!recorderState.isRecording && !hasRecording && (
           <TouchableOpacity
             style={[styles.button, styles.recordButton]}
             onPress={startRecording}
@@ -201,7 +170,7 @@ export function VoiceRecorder({
           </TouchableOpacity>
         )}
 
-        {isRecording && (
+        {recorderState.isRecording && (
           <View style={styles.recordingContainer}>
             <View style={styles.recordingIndicator}>
               <View style={styles.recordingDot} />
@@ -216,14 +185,14 @@ export function VoiceRecorder({
           </View>
         )}
 
-        {hasRecording && !isRecording && (
+        {hasRecording && !recorderState.isRecording && (
           <View style={styles.playbackContainer}>
             <TouchableOpacity
               style={[styles.button, styles.playButton]}
-              onPress={isPlaying ? stopPlayback : playRecording}
+              onPress={playerStatus.playing ? stopPlayback : playRecording}
             >
               <Text style={styles.buttonText}>
-                {isPlaying ? '⏹ Stop' : '▶️ Play'}
+                {playerStatus.playing ? 'Stop' : 'Play'}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -242,7 +211,7 @@ export function VoiceRecorder({
         )}
       </View>
 
-      {!permissionResponse?.granted && (
+      {hasPermission === false && (
         <Text style={styles.permissionText}>
           Microphone permission required for voice recording
         </Text>

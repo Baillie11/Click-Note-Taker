@@ -24,6 +24,21 @@ export async function closeDatabase(): Promise<void> {
   }
 }
 
+export async function clearDatabaseRecords(): Promise<string[]> {
+  const database = await getDatabase();
+  const recordings = await database.getAllAsync<{ audioUri: string | null }>(
+    'SELECT audioUri FROM notes WHERE audioUri IS NOT NULL'
+  );
+
+  await database.withTransactionAsync(async () => {
+    await database.runAsync('DELETE FROM incident_reports');
+    await database.runAsync('DELETE FROM notes');
+    await database.runAsync('DELETE FROM clients');
+  });
+
+  return recordings.flatMap(({ audioUri }) => audioUri ? [audioUri] : []);
+}
+
 /**
  * Generate UUID
  */

@@ -107,7 +107,7 @@ export function NoteEditorScreen() {
   const [sessionEntryTimeInput, setSessionEntryTimeInput] = useState(formatAustralianTime(getCurrentISOTimestamp()));
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   
-  const autosaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const noteIdRef = useRef<string | null>(noteId || null);
 
   useEffect(() => {

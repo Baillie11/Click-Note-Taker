@@ -22,6 +22,7 @@ import {
 } from '../../utils/biometrics';
 import { deletePin } from '../../utils/pin';
 import { EMPTY_USER_PROFILE, getUserProfile, saveUserProfile } from '../../utils/userProfile';
+import { resetAppData } from '../../utils/resetAppData';
 import { useAuth } from '../../context/AuthContext';
 import { UserProfile } from '../../types';
 import { 
@@ -129,6 +130,41 @@ export function SettingsScreen() {
               Alert.alert('Error', 'Failed to reset PIN');
             }
           },
+        },
+      ]
+    );
+  };
+
+  const handleEraseAllData = () => {
+    Alert.alert(
+      'Erase All App Data',
+      'This permanently deletes every client, note, recording, profile setting, and PIN from this device. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Continue',
+          style: 'destructive',
+          onPress: () => Alert.alert(
+            'Final Confirmation',
+            'Permanently erase all Click Note Taker data now?',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Erase Everything',
+                style: 'destructive',
+                onPress: async () => {
+                  try {
+                    await resetAppData();
+                    setPinSet(false);
+                    setAuthenticated(false);
+                  } catch (error) {
+                    console.error('Error erasing app data:', error);
+                    Alert.alert('Error', 'The app could not erase all data. Please try again.');
+                  }
+                },
+              },
+            ]
+          ),
         },
       ]
     );
@@ -364,6 +400,10 @@ export function SettingsScreen() {
               your organisation's privacy and record-keeping requirements.
             </Text>
           </View>
+
+          <TouchableOpacity style={styles.dangerButton} onPress={handleEraseAllData}>
+            <Text style={styles.dangerButtonText}>Erase All App Data</Text>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.spacer} />
