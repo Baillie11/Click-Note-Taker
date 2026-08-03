@@ -81,6 +81,7 @@ export function NDISProgressNoteView({ progressNote }: NDISProgressNoteProps) {
       {renderSection('Risks / Incidents', progressNote.risksIncidents)}
       {renderSection('Medication Assistance', progressNote.medicationAssistance)}
       {renderSection('Next Steps', progressNote.nextSteps)}
+      {renderSection('Additional Session Details', progressNote.customPromptResponses)}
 
       {(hasProgressNoteValue(progressNote.workerName) ||
         hasProgressNoteValue(progressNote.workerSignature)) && (

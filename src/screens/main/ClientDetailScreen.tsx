@@ -21,14 +21,16 @@ import {
   getNotesByClientId, 
   deleteNote 
 } from '../../database';
-import { Client, Note, NoteStatus, RootStackParamList } from '../../types';
+import { Client, CustomSessionSummaryPrompt, Note, NoteStatus, RootStackParamList } from '../../types';
 import { formatAustralianDateTime, getRelativeTime } from '../../utils/dateTime';
 import { parseSessionEntries } from '../../utils/sessionEntries';
 import {
   SESSION_SUMMARY_PROMPTS,
   SessionSummaryPromptId,
   parseSessionSummaryPromptIds,
+  parseCustomPrompts,
   serializeSessionSummaryPromptIds,
+  serializeCustomPrompts,
 } from '../../utils/sessionSummaryPrompts';
 import { COLORS, TYPOGRAPHY, SPACING } from '../../constants';
 
@@ -102,6 +104,8 @@ export function ClientDetailScreen() {
   const [editNdisNumber, setEditNdisNumber] = useState('');
   const [editAddress, setEditAddress] = useState('');
   const [editSessionSummaryPromptIds, setEditSessionSummaryPromptIds] = useState<SessionSummaryPromptId[]>([]);
+  const [editCustomPrompts, setEditCustomPrompts] = useState<CustomSessionSummaryPrompt[]>([]);
+  const [newCustomPrompt, setNewCustomPrompt] = useState('');
   const [editNotes, setEditNotes] = useState('');
 
   const loadData = useCallback(async () => {
@@ -114,6 +118,7 @@ export function ClientDetailScreen() {
         setEditNdisNumber(clientData.ndisNumber || '');
         setEditAddress(clientData.address || '');
         setEditSessionSummaryPromptIds(parseSessionSummaryPromptIds(clientData.sessionSummaryPromptIds));
+        setEditCustomPrompts(parseCustomPrompts(clientData.customSessionSummaryPrompts));
         setEditNotes(clientData.notes || '');
       }
       const notesData = await getNotesByClientId(clientId);
@@ -144,6 +149,7 @@ export function ClientDetailScreen() {
         ndisNumber: editNdisNumber.trim() || undefined,
         address: editAddress.trim() || undefined,
         sessionSummaryPromptIds: serializeSessionSummaryPromptIds(editSessionSummaryPromptIds),
+        customSessionSummaryPrompts: serializeCustomPrompts(editCustomPrompts),
         notes: editNotes.trim() || undefined,
       });
       setShowEditModal(false);
@@ -152,6 +158,16 @@ export function ClientDetailScreen() {
       console.error('Error updating client:', error);
       Alert.alert('Error', 'Failed to update client');
     }
+  };
+
+  const handleAddCustomPrompt = () => {
+    const question = newCustomPrompt.trim();
+    if (!question) return;
+    setEditCustomPrompts(current => [
+      ...current,
+      { id: `custom-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, question },
+    ]);
+    setNewCustomPrompt('');
   };
 
   const handleDeleteClient = () => {
@@ -427,6 +443,43 @@ export function ClientDetailScreen() {
                   </TouchableOpacity>
                 );
               })}
+
+              <Text style={styles.customPromptTitle}>Custom Prompts</Text>
+              {editCustomPrompts.map((prompt) => (
+                <View key={prompt.id} style={styles.customPromptRow}>
+                  <TextInput
+                    style={[styles.modalInput, styles.customPromptInput]}
+                    value={prompt.question}
+                    onChangeText={(question) => setEditCustomPrompts(current =>
+                      current.map(item => item.id === prompt.id ? { ...item, question } : item)
+                    )}
+                    placeholder="End-of-shift question"
+                    placeholderTextColor={COLORS.textMuted}
+                    multiline
+                  />
+                  <TouchableOpacity
+                    style={styles.removePromptButton}
+                    onPress={() => setEditCustomPrompts(current => current.filter(item => item.id !== prompt.id))}
+                  >
+                    <Text style={styles.removePromptButtonText}>Remove</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+              <TextInput
+                style={styles.modalInput}
+                value={newCustomPrompt}
+                onChangeText={setNewCustomPrompt}
+                placeholder="Add your own question"
+                placeholderTextColor={COLORS.textMuted}
+                multiline
+              />
+              <TouchableOpacity
+                style={[styles.addPromptButton, !newCustomPrompt.trim() && styles.addPromptButtonDisabled]}
+                onPress={handleAddCustomPrompt}
+                disabled={!newCustomPrompt.trim()}
+              >
+                <Text style={styles.addPromptButtonText}>Add Prompt</Text>
+              </TouchableOpacity>
 
               <View style={styles.modalButtons}>
                 <TouchableOpacity
@@ -813,6 +866,49 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSizeBase,
     color: COLORS.text,
     lineHeight: 21,
+  },
+  customPromptTitle: {
+    fontSize: TYPOGRAPHY.fontSizeBase,
+    fontWeight: '600',
+    color: COLORS.text,
+    marginTop: SPACING.md,
+    marginBottom: SPACING.sm,
+  },
+  customPromptRow: {
+    marginBottom: SPACING.sm,
+  },
+  customPromptInput: {
+    height: 'auto',
+    minHeight: 48,
+    paddingVertical: SPACING.sm,
+    marginBottom: SPACING.xs,
+  },
+  removePromptButton: {
+    alignSelf: 'flex-end',
+    paddingVertical: SPACING.xs,
+    paddingHorizontal: SPACING.sm,
+  },
+  removePromptButtonText: {
+    color: COLORS.error,
+    fontSize: TYPOGRAPHY.fontSizeSmall,
+    fontWeight: '600',
+  },
+  addPromptButton: {
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 8,
+    backgroundColor: COLORS.primary,
+    marginTop: -SPACING.sm,
+    marginBottom: SPACING.md,
+  },
+  addPromptButtonDisabled: {
+    backgroundColor: COLORS.disabled,
+  },
+  addPromptButtonText: {
+    color: COLORS.surface,
+    fontSize: TYPOGRAPHY.fontSizeBase,
+    fontWeight: '600',
   },
   modalButtons: {
     flexDirection: 'row',

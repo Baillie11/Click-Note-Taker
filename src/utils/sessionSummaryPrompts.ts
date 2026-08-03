@@ -1,3 +1,5 @@
+import { CustomPromptResponse, CustomSessionSummaryPrompt } from '../types';
+
 export const SESSION_SUMMARY_PROMPTS = [
   {
     id: 'supports',
@@ -41,4 +43,38 @@ export function parseSessionSummaryPromptIds(value?: string): SessionSummaryProm
 
 export function serializeSessionSummaryPromptIds(ids: SessionSummaryPromptId[]): string {
   return JSON.stringify(ids);
+}
+
+export function parseCustomPrompts(value?: string): CustomSessionSummaryPrompt[] {
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((prompt): prompt is CustomSessionSummaryPrompt =>
+      typeof prompt?.id === 'string' && typeof prompt?.question === 'string' && !!prompt.question.trim()
+    );
+  } catch {
+    return [];
+  }
+}
+
+export function serializeCustomPrompts(prompts: CustomSessionSummaryPrompt[]): string {
+  return JSON.stringify(prompts);
+}
+
+export function parseCustomPromptResponses(value?: string): CustomPromptResponse[] {
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((item): item is CustomPromptResponse =>
+      typeof item?.id === 'string' && typeof item?.question === 'string' && typeof item?.response === 'string'
+    );
+  } catch {
+    return [];
+  }
+}
+
+export function serializeCustomPromptResponses(responses: CustomPromptResponse[]): string {
+  return JSON.stringify(responses);
 }

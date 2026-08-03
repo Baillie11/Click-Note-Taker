@@ -31,6 +31,7 @@ export async function createNote(
     risksIncidents: data?.risksIncidents,
     medicationAssistance: data?.medicationAssistance,
     nextSteps: data?.nextSteps,
+    customPromptResponses: data?.customPromptResponses || '[]',
     workerName: data?.workerName,
     workerSignature: data?.workerSignature,
     createdAt: now,
@@ -42,8 +43,8 @@ export async function createNote(
       id, clientId, rawContent, sessionEntries, audioUri, transcript, timeIn, timeOut,
       location, supportCategory, goalsSupported, activitiesCompleted,
       observations, risksIncidents, medicationAssistance, nextSteps,
-      workerName, workerSignature, status, createdAt, updatedAt
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      workerName, workerSignature, customPromptResponses, status, createdAt, updatedAt
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       note.id,
       note.clientId,
@@ -63,6 +64,7 @@ export async function createNote(
       note.nextSteps || null,
       note.workerName || null,
       note.workerSignature || null,
+      note.customPromptResponses || '[]',
       note.status,
       note.createdAt,
       note.updatedAt,
@@ -120,7 +122,7 @@ export async function updateNote(
       rawContent = ?, sessionEntries = ?, audioUri = ?, transcript = ?, timeIn = ?, timeOut = ?,
       location = ?, supportCategory = ?, goalsSupported = ?, activitiesCompleted = ?,
       observations = ?, risksIncidents = ?, medicationAssistance = ?, nextSteps = ?,
-      workerName = ?, workerSignature = ?, status = ?, updatedAt = ?
+      workerName = ?, workerSignature = ?, customPromptResponses = ?, status = ?, updatedAt = ?
      WHERE id = ?`,
     [
       updated.rawContent,
@@ -139,6 +141,7 @@ export async function updateNote(
       updated.nextSteps || null,
       updated.workerName || null,
       updated.workerSignature || null,
+      updated.customPromptResponses || '[]',
       updated.status,
       updated.updatedAt,
       id,

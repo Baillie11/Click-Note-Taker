@@ -23,7 +23,7 @@ import {
   getNoteById, 
   getClientById 
 } from '../../database';
-import { Note, NoteStatus, Client, RootStackParamList, SessionEntry, SUPPORT_CATEGORIES } from '../../types';
+import { CustomPromptResponse, Note, NoteStatus, Client, RootStackParamList, SessionEntry, SUPPORT_CATEGORIES } from '../../types';
 import { 
   convertToNDISProgressNote, 
   formatNDISProgressNoteAsText,
@@ -42,7 +42,12 @@ import {
   serializeSessionEntries,
 } from '../../utils/sessionEntries';
 import { COLORS, TYPOGRAPHY, SPACING, AUTOSAVE_INTERVAL } from '../../constants';
-import { parseSessionSummaryPromptIds } from '../../utils/sessionSummaryPrompts';
+import {
+  parseCustomPromptResponses,
+  parseCustomPrompts,
+  parseSessionSummaryPromptIds,
+  serializeCustomPromptResponses,
+} from '../../utils/sessionSummaryPrompts';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type NoteEditorRouteProp = RouteProp<RootStackParamList, 'NoteEditor'>;
@@ -88,6 +93,7 @@ export function NoteEditorScreen() {
   const [observations, setObservations] = useState('');
   const [risksIncidents, setRisksIncidents] = useState('');
   const [nextSteps, setNextSteps] = useState('');
+  const [customPromptResponses, setCustomPromptResponses] = useState<CustomPromptResponse[]>([]);
   const [workerName, setWorkerName] = useState('');
   const [workerSignature, setWorkerSignature] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -148,6 +154,7 @@ export function NoteEditorScreen() {
     observations,
     risksIncidents,
     nextSteps,
+    customPromptResponses,
     workerName,
     workerSignature,
     hasUnsavedChanges,
@@ -180,6 +187,7 @@ export function NoteEditorScreen() {
           setObservations(noteData.observations || '');
           setRisksIncidents(noteData.risksIncidents || '');
           setNextSteps(noteData.nextSteps || '');
+          setCustomPromptResponses(parseCustomPromptResponses(noteData.customPromptResponses));
           setWorkerName(noteData.workerName || '');
           setWorkerSignature(noteData.workerSignature || '');
         }
@@ -227,6 +235,7 @@ export function NoteEditorScreen() {
         observations,
         risksIncidents,
         nextSteps,
+        customPromptResponses: serializeCustomPromptResponses(customPromptResponses),
         workerName,
         workerSignature,
       });
@@ -372,7 +381,8 @@ export function NoteEditorScreen() {
 
   const handleFinishShift = () => {
     const selectedPrompts = parseSessionSummaryPromptIds(client?.sessionSummaryPromptIds);
-    if (selectedPrompts.length === 0) {
+    const customPrompts = parseCustomPrompts(client?.customSessionSummaryPrompts);
+    if (selectedPrompts.length === 0 && customPrompts.length === 0) {
       handleCompleteWithReflection();
       return;
     }
@@ -389,6 +399,18 @@ export function NoteEditorScreen() {
   };
 
   const selectedSessionSummaryPrompts = parseSessionSummaryPromptIds(client?.sessionSummaryPromptIds);
+  const selectedCustomPrompts = parseCustomPrompts(client?.customSessionSummaryPrompts);
+
+  const updateCustomPromptResponse = (id: string, question: string, response: string) => {
+    setCustomPromptResponses(current => {
+      const existing = current.find(item => item.id === id);
+      if (existing) {
+        return current.map(item => item.id === id ? { ...item, question, response } : item);
+      }
+      return [...current, { id, question, response }];
+    });
+    setHasUnsavedChanges(true);
+  };
 
   const handleMarkSubmitted = () => {
     if (!timeOut) {
@@ -417,6 +439,7 @@ export function NoteEditorScreen() {
     observations,
     risksIncidents,
     nextSteps,
+    customPromptResponses: serializeCustomPromptResponses(customPromptResponses),
     workerName,
     workerSignature,
   });
@@ -956,6 +979,19 @@ export function NoteEditorScreen() {
                 />
               </View>
               )}
+              {selectedCustomPrompts.map((prompt) => (
+                <View style={styles.field} key={prompt.id}>
+                  <Text style={styles.fieldLabel}>{prompt.question}</Text>
+                  <TextInput
+                    style={[styles.fieldInput, styles.multilineInput]}
+                    value={customPromptResponses.find(item => item.id === prompt.id)?.response || ''}
+                    onChangeText={(text) => updateCustomPromptResponse(prompt.id, prompt.question, text)}
+                    placeholder="Enter your response"
+                    placeholderTextColor={COLORS.textMuted}
+                    multiline
+                  />
+                </View>
+              ))}
             </ScrollView>
             <View style={styles.reflectionActions}>
               <TouchableOpacity style={styles.reflectionContinueButton} onPress={() => setShowReflectionForm(false)}>

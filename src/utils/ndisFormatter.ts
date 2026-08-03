@@ -1,6 +1,7 @@
 import { Note, Client, NDISProgressNote } from '../types';
 import { calculateDuration, formatAustralianDate, formatAustralianTime } from './dateTime';
 import { formatSessionEntries, parseSessionEntries } from './sessionEntries';
+import { parseCustomPromptResponses } from './sessionSummaryPrompts';
 
 export function hasProgressNoteValue(value?: string): boolean {
   const trimmedValue = value?.trim();
@@ -31,6 +32,10 @@ export function convertToNDISProgressNote(
     risksIncidents: note.risksIncidents?.trim() || '[Add risks or incidents]',
     medicationAssistance: note.medicationAssistance?.trim() || '[Add medication assistance]',
     nextSteps: note.nextSteps?.trim() || '[Add recommendations]',
+    customPromptResponses: parseCustomPromptResponses(note.customPromptResponses)
+      .filter(item => item.response.trim())
+      .map(item => `${item.question}\n${item.response.trim()}`)
+      .join('\n\n'),
     workerName: note.workerName || '[Add worker name]',
     workerSignature: note.workerSignature || '[Add signature]',
   };
@@ -66,6 +71,7 @@ export function formatNDISProgressNoteAsText(progressNote: NDISProgressNote): st
     section('RISKS / INCIDENTS', progressNote.risksIncidents),
     section('MEDICATION ASSISTANCE', progressNote.medicationAssistance),
     section('NEXT STEPS', progressNote.nextSteps),
+    section('ADDITIONAL SESSION DETAILS', progressNote.customPromptResponses),
     (() => {
       const workerDetails = fields([
         ['Worker Name', progressNote.workerName],

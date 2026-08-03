@@ -16,14 +16,14 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.clickecommerce.clicknotetaker",
-      "buildNumber": "3",
+      "buildNumber": "4",
       "infoPlist": {
         "NSMicrophoneUsageDescription": "This app needs access to your microphone to record voice notes.",
         "NSFaceIDUsageDescription": "This app uses Face ID to securely unlock the app."
       }
     },
     "android": {
-      "versionCode": 3,
+      "versionCode": 4,
       "allowBackup": false,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",

@@ -97,6 +97,13 @@ const MIGRATIONS = [
       ALTER TABLE clients ADD COLUMN sessionSummaryPromptIds TEXT NOT NULL DEFAULT '[]';
     `,
   },
+  {
+    version: 7,
+    up: `
+      ALTER TABLE clients ADD COLUMN customSessionSummaryPrompts TEXT NOT NULL DEFAULT '[]';
+      ALTER TABLE notes ADD COLUMN customPromptResponses TEXT NOT NULL DEFAULT '[]';
+    `,
+  },
 ];
 
 /**

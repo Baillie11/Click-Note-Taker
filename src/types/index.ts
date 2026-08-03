@@ -6,6 +6,7 @@ export interface Client {
   ndisNumber?: string;
   address?: string;
   sessionSummaryPromptIds?: string;
+  customSessionSummaryPrompts?: string;
   notes?: string;
   createdAt: string;
   updatedAt: string;
@@ -17,6 +18,15 @@ export interface SessionEntry {
   id: string;
   timestamp: string;
   text: string;
+}
+
+export interface CustomSessionSummaryPrompt {
+  id: string;
+  question: string;
+}
+
+export interface CustomPromptResponse extends CustomSessionSummaryPrompt {
+  response: string;
 }
 
 // Note entity
@@ -38,6 +48,7 @@ export interface Note {
   risksIncidents?: string;
   medicationAssistance?: string;
   nextSteps?: string;
+  customPromptResponses?: string;
   workerName?: string;
   workerSignature?: string;
   createdAt: string;
@@ -97,6 +108,7 @@ export interface NDISProgressNote {
   risksIncidents: string;
   medicationAssistance: string;
   nextSteps: string;
+  customPromptResponses: string;
   workerName: string;
   workerSignature: string;
 }
