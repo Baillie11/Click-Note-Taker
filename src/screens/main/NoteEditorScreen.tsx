@@ -23,10 +23,11 @@ import {
   getNoteById, 
   getClientById 
 } from '../../database';
-import { Note, NoteStatus, Client, RootStackParamList, SUPPORT_CATEGORIES } from '../../types';
+import { Note, NoteStatus, Client, RootStackParamList, SessionEntry, SUPPORT_CATEGORIES } from '../../types';
 import { 
   convertToNDISProgressNote, 
-  formatNDISProgressNoteAsText 
+  formatNDISProgressNoteAsText,
+  getIncompleteFields,
 } from '../../utils/ndisFormatter';
 import { 
   formatAustralianDate, 
@@ -35,7 +36,13 @@ import {
   parseAustralianDateToISO,
 } from '../../utils/dateTime';
 import { getUserProfile } from '../../utils/userProfile';
+import {
+  getMinuteTimestampForDate,
+  parseSessionEntries,
+  serializeSessionEntries,
+} from '../../utils/sessionEntries';
 import { COLORS, TYPOGRAPHY, SPACING, AUTOSAVE_INTERVAL } from '../../constants';
+import { parseSessionSummaryPromptIds } from '../../utils/sessionSummaryPrompts';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type NoteEditorRouteProp = RouteProp<RootStackParamList, 'NoteEditor'>;
@@ -67,6 +74,8 @@ export function NoteEditorScreen() {
   const [client, setClient] = useState<Client | null>(null);
   const [note, setNote] = useState<Note | null>(null);
   const [rawContent, setRawContent] = useState('');
+  const [sessionEntries, setSessionEntries] = useState<SessionEntry[]>([]);
+  const [liveEntryDraft, setLiveEntryDraft] = useState('');
   const [audioUri, setAudioUri] = useState<string | undefined>();
   const [transcript, setTranscript] = useState('');
   const [timeIn, setTimeIn] = useState(getCurrentISOTimestamp());
@@ -75,6 +84,10 @@ export function NoteEditorScreen() {
   const [location, setLocation] = useState('');
   const [supportCategory, setSupportCategory] = useState('');
   const [goalsSupported, setGoalsSupported] = useState('');
+  const [activitiesCompleted, setActivitiesCompleted] = useState('');
+  const [observations, setObservations] = useState('');
+  const [risksIncidents, setRisksIncidents] = useState('');
+  const [nextSteps, setNextSteps] = useState('');
   const [workerName, setWorkerName] = useState('');
   const [workerSignature, setWorkerSignature] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -83,10 +96,15 @@ export function NoteEditorScreen() {
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const [showTimeInEditor, setShowTimeInEditor] = useState(false);
   const [showTimeOutEditor, setShowTimeOutEditor] = useState(false);
+  const [showSessionEntryTimeEditor, setShowSessionEntryTimeEditor] = useState(false);
+  const [showReflectionForm, setShowReflectionForm] = useState(false);
   const [timeInDateInput, setTimeInDateInput] = useState(formatAustralianDate(timeIn));
   const [timeInTimeInput, setTimeInTimeInput] = useState(formatAustralianTime(timeIn));
   const [timeOutDateInput, setTimeOutDateInput] = useState(formatAustralianDate(getCurrentISOTimestamp()));
   const [timeOutTimeInput, setTimeOutTimeInput] = useState(formatAustralianTime(getCurrentISOTimestamp()));
+  const [editingSessionEntryId, setEditingSessionEntryId] = useState<string | null>(null);
+  const [sessionEntryDateInput, setSessionEntryDateInput] = useState(formatAustralianDate(getCurrentISOTimestamp()));
+  const [sessionEntryTimeInput, setSessionEntryTimeInput] = useState(formatAustralianTime(getCurrentISOTimestamp()));
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   
   const autosaveTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -118,6 +136,7 @@ export function NoteEditorScreen() {
     };
   }, [
     rawContent,
+    sessionEntries,
     transcript,
     timeIn,
     timeOut,
@@ -125,6 +144,10 @@ export function NoteEditorScreen() {
     location,
     supportCategory,
     goalsSupported,
+    activitiesCompleted,
+    observations,
+    risksIncidents,
+    nextSteps,
     workerName,
     workerSignature,
     hasUnsavedChanges,
@@ -144,6 +167,7 @@ export function NoteEditorScreen() {
           setNote(noteData);
           noteIdRef.current = noteData.id;
           setRawContent(noteData.rawContent || '');
+          setSessionEntries(parseSessionEntries(noteData.sessionEntries));
           setAudioUri(noteData.audioUri);
           setTranscript(noteData.transcript || '');
           setTimeIn(noteData.timeIn);
@@ -152,13 +176,17 @@ export function NoteEditorScreen() {
           setLocation(noteData.location || '');
           setSupportCategory(noteData.supportCategory || '');
           setGoalsSupported(noteData.goalsSupported || '');
+          setActivitiesCompleted(noteData.activitiesCompleted || '');
+          setObservations(noteData.observations || '');
+          setRisksIncidents(noteData.risksIncidents || '');
+          setNextSteps(noteData.nextSteps || '');
           setWorkerName(noteData.workerName || '');
           setWorkerSignature(noteData.workerSignature || '');
         }
       } else {
         // Create a new note immediately
         const newNote = await createNote(clientId, {
-          location: userProfile.defaultLocation || undefined,
+          location: clientData?.address || userProfile.defaultLocation || undefined,
           workerName: userProfile.workerName || undefined,
           workerSignature: userProfile.workerSignature || userProfile.workerName || undefined,
         });
@@ -186,6 +214,7 @@ export function NoteEditorScreen() {
 
       await updateNote(noteIdRef.current, {
         rawContent,
+        sessionEntries: serializeSessionEntries(sessionEntries),
         audioUri,
         transcript,
         timeIn,
@@ -194,6 +223,10 @@ export function NoteEditorScreen() {
         location,
         supportCategory,
         goalsSupported,
+        activitiesCompleted,
+        observations,
+        risksIncidents,
+        nextSteps,
         workerName,
         workerSignature,
       });
@@ -230,6 +263,61 @@ export function NoteEditorScreen() {
   const handleSetTimeOut = () => {
     setTimeOut(getCurrentISOTimestamp());
     setHasUnsavedChanges(true);
+  };
+
+  const handleAddSessionEntry = () => {
+    const text = liveEntryDraft.trim();
+    if (!text) return;
+
+    setSessionEntries((entries) => [
+      ...entries,
+      {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        timestamp: getMinuteTimestampForDate(timeIn),
+        text,
+      },
+    ]);
+    setLiveEntryDraft('');
+    setHasUnsavedChanges(true);
+  };
+
+  const handleDeleteSessionEntry = (id: string) => {
+    setSessionEntries((entries) => entries.filter((entry) => entry.id !== id));
+    setHasUnsavedChanges(true);
+  };
+
+  const openSessionEntryTimeEditor = (entry: SessionEntry) => {
+    setEditingSessionEntryId(entry.id);
+    setSessionEntryDateInput(formatAustralianDate(entry.timestamp));
+    setSessionEntryTimeInput(formatAustralianTime(entry.timestamp));
+    setShowSessionEntryTimeEditor(true);
+  };
+
+  const handleApplySessionEntryTime = () => {
+    if (!editingSessionEntryId) return;
+
+    try {
+      const nextTimestamp = parseAustralianDateToISO(
+        sessionEntryDateInput.trim(),
+        sessionEntryTimeInput.trim()
+      );
+      if (Number.isNaN(new Date(nextTimestamp).getTime())) {
+        throw new Error('Invalid date');
+      }
+
+      setSessionEntries((entries) =>
+        entries
+          .map((entry) =>
+            entry.id === editingSessionEntryId ? { ...entry, timestamp: nextTimestamp } : entry
+          )
+          .sort((first, second) => first.timestamp.localeCompare(second.timestamp))
+      );
+      setHasUnsavedChanges(true);
+      setShowSessionEntryTimeEditor(false);
+      setEditingSessionEntryId(null);
+    } catch (error) {
+      Alert.alert('Invalid Note Time', 'Enter the date as DD/MM/YYYY and time as HH:MM AM/PM.');
+    }
   };
 
   const openTimeOutEditor = () => {
@@ -283,12 +371,24 @@ export function NoteEditorScreen() {
   };
 
   const handleFinishShift = () => {
+    const selectedPrompts = parseSessionSummaryPromptIds(client?.sessionSummaryPromptIds);
+    if (selectedPrompts.length === 0) {
+      handleCompleteWithReflection();
+      return;
+    }
+    setShowReflectionForm(true);
+  };
+
+  const handleCompleteWithReflection = () => {
     if (!timeOut) {
       setTimeOut(getCurrentISOTimestamp());
     }
     setNoteStatus('completed');
     setHasUnsavedChanges(true);
+    setShowReflectionForm(false);
   };
+
+  const selectedSessionSummaryPrompts = parseSessionSummaryPromptIds(client?.sessionSummaryPromptIds);
 
   const handleMarkSubmitted = () => {
     if (!timeOut) {
@@ -303,33 +403,75 @@ export function NoteEditorScreen() {
     setHasUnsavedChanges(true);
   };
 
-  const handleCopyNDISNote = async () => {
-    if (!client || !note) return;
+  const buildCurrentNote = (baseNote: Note): Note => ({
+    ...baseNote,
+    rawContent,
+    sessionEntries: serializeSessionEntries(sessionEntries),
+    timeIn,
+    timeOut,
+    status: noteStatus,
+    location,
+    supportCategory,
+    goalsSupported,
+    activitiesCompleted,
+    observations,
+    risksIncidents,
+    nextSteps,
+    workerName,
+    workerSignature,
+  });
 
-    const progressNote = convertToNDISProgressNote(
-      { ...note, rawContent, timeIn, timeOut, status: noteStatus, location, supportCategory, goalsSupported, workerName, workerSignature },
-      client
+  const confirmReportAction = (
+    actionLabel: string,
+    missingFields: string[],
+    action: () => void | Promise<void>
+  ) => {
+    if (missingFields.length === 0) {
+      void action();
+      return;
+    }
+
+    Alert.alert(
+      'Report may be incomplete',
+      `Missing: ${missingFields.join(', ')}.\n\nReview the report preview or continue anyway.`,
+      [
+        { text: 'Review', style: 'cancel' },
+        { text: `${actionLabel} Anyway`, onPress: () => { void action(); } },
+      ]
     );
-    const text = formatNDISProgressNoteAsText(progressNote);
-    
-    await Clipboard.setStringAsync(text);
-    Alert.alert('Copied', 'NDIS Progress Note copied to clipboard');
   };
 
-  const handleShareNDISNote = async () => {
+  const handleCopyReport = () => {
     if (!client || !note) return;
 
     const progressNote = convertToNDISProgressNote(
-      { ...note, rawContent, timeIn, timeOut, status: noteStatus, location, supportCategory, goalsSupported, workerName, workerSignature },
+      buildCurrentNote(note),
       client
     );
     const text = formatNDISProgressNoteAsText(progressNote);
-    
-    try {
-      await Share.share({ message: text });
-    } catch (error) {
-      console.error('Error sharing:', error);
-    }
+
+    confirmReportAction('Copy', getIncompleteFields(progressNote), async () => {
+      await Clipboard.setStringAsync(text);
+      Alert.alert('Copied', 'Support Session Report copied to clipboard');
+    });
+  };
+
+  const handleShareReport = () => {
+    if (!client || !note) return;
+
+    const progressNote = convertToNDISProgressNote(
+      buildCurrentNote(note),
+      client
+    );
+    const text = formatNDISProgressNoteAsText(progressNote);
+
+    confirmReportAction('Share', getIncompleteFields(progressNote), async () => {
+      try {
+        await Share.share({ message: text });
+      } catch (error) {
+        console.error('Error sharing:', error);
+      }
+    });
   };
 
   const handleBack = () => {
@@ -363,7 +505,7 @@ export function NoteEditorScreen() {
 
   const progressNote = client && note
     ? convertToNDISProgressNote(
-        { ...note, rawContent, timeIn, timeOut, status: noteStatus, location, supportCategory, goalsSupported, workerName, workerSignature },
+        buildCurrentNote(note),
         client
       )
     : null;
@@ -410,7 +552,7 @@ export function NoteEditorScreen() {
           onPress={() => setShowNDISView(false)}
         >
           <Text style={[styles.tabText, !showNDISView && styles.tabTextActive]}>
-            Raw Note
+            Edit Note
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -418,7 +560,7 @@ export function NoteEditorScreen() {
           onPress={() => setShowNDISView(true)}
         >
           <Text style={[styles.tabText, showNDISView && styles.tabTextActive]}>
-            NDIS Format
+            Report Preview
           </Text>
         </TouchableOpacity>
       </View>
@@ -427,10 +569,10 @@ export function NoteEditorScreen() {
         <View style={styles.ndisContainer}>
           <NDISProgressNoteView progressNote={progressNote} />
           <View style={styles.ndisActions}>
-            <TouchableOpacity style={styles.actionButton} onPress={handleCopyNDISNote}>
+            <TouchableOpacity style={styles.actionButton} onPress={handleCopyReport}>
               <Text style={styles.actionButtonText}>📋 Copy</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.actionButton} onPress={handleShareNDISNote}>
+            <TouchableOpacity style={styles.actionButton} onPress={handleShareReport}>
               <Text style={styles.actionButtonText}>📤 Share</Text>
             </TouchableOpacity>
           </View>
@@ -480,12 +622,21 @@ export function NoteEditorScreen() {
             </View>
 
             <View style={styles.statusActions}>
-              {noteStatus !== 'submitted' ? (
+              {noteStatus === 'incomplete' ? (
                 <>
                   <TouchableOpacity style={styles.completeButton} onPress={handleFinishShift}>
                     <Text style={styles.completeButtonText}>
                       {timeOut ? 'Mark Complete' : 'Finish Shift'}
                     </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.submitButton} onPress={handleMarkSubmitted}>
+                    <Text style={styles.submitButtonText}>Mark Submitted</Text>
+                  </TouchableOpacity>
+                </>
+              ) : noteStatus === 'completed' ? (
+                <>
+                  <TouchableOpacity style={styles.reopenButton} onPress={handleReopenNote}>
+                    <Text style={styles.reopenButtonText}>Reopen Note</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.submitButton} onPress={handleMarkSubmitted}>
                     <Text style={styles.submitButtonText}>Mark Submitted</Text>
@@ -558,11 +709,60 @@ export function NoteEditorScreen() {
 
           <View style={styles.field}>
             <Text style={styles.fieldLabel}>Session Notes</Text>
+            <Text style={styles.fieldHelper}>
+              Add brief notes as the session happens. Each entry is saved with the current time to the minute.
+            </Text>
+            <View style={styles.liveEntryComposer}>
+              <TextInput
+                style={[styles.fieldInput, styles.liveEntryInput]}
+                value={liveEntryDraft}
+                onChangeText={setLiveEntryDraft}
+                placeholder="Add a live session entry"
+                placeholderTextColor={COLORS.textMuted}
+                multiline
+              />
+              <TouchableOpacity
+                style={[styles.addEntryButton, !liveEntryDraft.trim() && styles.addEntryButtonDisabled]}
+                onPress={handleAddSessionEntry}
+                disabled={!liveEntryDraft.trim()}
+              >
+                <Text style={styles.addEntryButtonText}>Add Note</Text>
+              </TouchableOpacity>
+            </View>
+
+            {sessionEntries.length > 0 ? (
+              <View style={styles.sessionEntryList}>
+                {sessionEntries.map((entry) => (
+                  <View key={entry.id} style={styles.sessionEntry}>
+                    <View style={styles.sessionEntryContent}>
+                      <Text style={styles.sessionEntryTime}>{formatAustralianTime(entry.timestamp)}</Text>
+                      <Text style={styles.sessionEntryText}>{entry.text}</Text>
+                    </View>
+                    <View style={styles.sessionEntryActions}>
+                      <TouchableOpacity
+                        onPress={() => openSessionEntryTimeEditor(entry)}
+                        style={styles.editEntryButton}
+                      >
+                        <Text style={styles.editEntryButtonText}>Edit Time</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => handleDeleteSessionEntry(entry.id)}
+                        style={styles.deleteEntryButton}
+                      >
+                        <Text style={styles.deleteEntryButtonText}>Remove</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            ) : null}
+
+            <Text style={styles.sessionSummaryLabel}>Session summary</Text>
             <TextInput
               style={[styles.fieldInput, styles.notesInput]}
               value={rawContent}
               onChangeText={handleContentChange}
-              placeholder="Describe the session, activities, observations..."
+              placeholder="Add any longer notes or overall context here"
               placeholderTextColor={COLORS.textMuted}
               multiline
               textAlignVertical="top"
@@ -587,7 +787,7 @@ export function NoteEditorScreen() {
             onPress={() => setShowNDISView(true)}
           >
             <Text style={styles.convertButtonText}>
-              Convert to NDIS Progress Note
+              Preview Report
             </Text>
           </TouchableOpacity>
 
@@ -637,6 +837,137 @@ export function NoteEditorScreen() {
             >
               <Text style={styles.modalCloseButtonText}>Cancel</Text>
             </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={showSessionEntryTimeEditor}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowSessionEntryTimeEditor(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Edit Note Time</Text>
+
+            <View style={styles.field}>
+              <Text style={styles.fieldLabel}>Date</Text>
+              <TextInput
+                style={styles.fieldInput}
+                value={sessionEntryDateInput}
+                onChangeText={setSessionEntryDateInput}
+                placeholder="DD/MM/YYYY"
+                placeholderTextColor={COLORS.textMuted}
+              />
+            </View>
+
+            <View style={styles.field}>
+              <Text style={styles.fieldLabel}>Time</Text>
+              <TextInput
+                style={styles.fieldInput}
+                value={sessionEntryTimeInput}
+                onChangeText={setSessionEntryTimeInput}
+                placeholder="HH:MM AM/PM"
+                placeholderTextColor={COLORS.textMuted}
+              />
+            </View>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.modalActionButton, styles.modalCancelAction]}
+                onPress={() => setShowSessionEntryTimeEditor(false)}
+              >
+                <Text style={styles.modalCancelActionText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalActionButton, styles.modalSaveAction]}
+                onPress={handleApplySessionEntryTime}
+              >
+                <Text style={styles.modalSaveActionText}>Apply</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={showReflectionForm}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowReflectionForm(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, styles.reflectionModalContent]}>
+            <Text style={styles.modalTitle}>Complete Session Summary</Text>
+            <Text style={styles.reflectionIntro}>
+              Complete the prompts selected in this client's profile.
+            </Text>
+            <ScrollView keyboardShouldPersistTaps="handled">
+              {selectedSessionSummaryPrompts.includes('supports') && (
+              <View style={styles.field}>
+                <Text style={styles.fieldLabel}>What supports and activities were provided?</Text>
+                <TextInput
+                  style={[styles.fieldInput, styles.multilineInput]}
+                  value={activitiesCompleted}
+                  onChangeText={(text) => { setActivitiesCompleted(text); setHasUnsavedChanges(true); }}
+                  placeholder="Activities, choices, routines, or skills practised"
+                  placeholderTextColor={COLORS.textMuted}
+                  multiline
+                />
+              </View>
+              )}
+              {selectedSessionSummaryPrompts.includes('engagement') && (
+              <View style={styles.field}>
+                <Text style={styles.fieldLabel}>How did the client present and engage?</Text>
+                <TextInput
+                  style={[styles.fieldInput, styles.multilineInput]}
+                  value={observations}
+                  onChangeText={(text) => { setObservations(text); setHasUnsavedChanges(true); }}
+                  placeholder="Presentation, communication, mood, participation, and strengths"
+                  placeholderTextColor={COLORS.textMuted}
+                  multiline
+                />
+              </View>
+              )}
+              {selectedSessionSummaryPrompts.includes('changes') && (
+              <View style={styles.field}>
+                <Text style={styles.fieldLabel}>Were there any changes, concerns, or incidents?</Text>
+                <TextInput
+                  style={[styles.fieldInput, styles.multilineInput]}
+                  value={risksIncidents}
+                  onChangeText={(text) => { setRisksIncidents(text); setHasUnsavedChanges(true); }}
+                  placeholder="Changes to health, behaviour, routine, risks, or incidents"
+                  placeholderTextColor={COLORS.textMuted}
+                  multiline
+                />
+              </View>
+              )}
+              {selectedSessionSummaryPrompts.includes('handover') && (
+              <View style={styles.field}>
+                <Text style={styles.fieldLabel}>What should the next worker know or follow up?</Text>
+                <TextInput
+                  style={[styles.fieldInput, styles.multilineInput]}
+                  value={nextSteps}
+                  onChangeText={(text) => { setNextSteps(text); setHasUnsavedChanges(true); }}
+                  placeholder="Handover details, appointments, preferences, or follow-up actions"
+                  placeholderTextColor={COLORS.textMuted}
+                  multiline
+                />
+              </View>
+              )}
+            </ScrollView>
+            <View style={styles.reflectionActions}>
+              <TouchableOpacity style={styles.reflectionContinueButton} onPress={() => setShowReflectionForm(false)}>
+                <Text style={styles.modalCancelActionText}>Continue Editing</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.skipReflectionButton} onPress={handleCompleteWithReflection}>
+                <Text style={styles.skipReflectionButtonText}>Skip for Now and Mark Complete</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.completeReflectionButton} onPress={handleCompleteWithReflection}>
+                <Text style={styles.completeReflectionButtonText}>Save Summary and Mark Complete</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -993,6 +1324,12 @@ const styles = StyleSheet.create({
     color: COLORS.textLight,
     marginBottom: SPACING.xs,
   },
+  fieldHelper: {
+    fontSize: TYPOGRAPHY.fontSizeSmall,
+    color: COLORS.textLight,
+    lineHeight: 18,
+    marginBottom: SPACING.sm,
+  },
   fieldInput: {
     backgroundColor: COLORS.surface,
     borderRadius: 8,
@@ -1010,6 +1347,84 @@ const styles = StyleSheet.create({
   notesInput: {
     minHeight: 120,
     textAlignVertical: 'top',
+  },
+  liveEntryComposer: {
+    gap: SPACING.sm,
+  },
+  liveEntryInput: {
+    minHeight: 64,
+    textAlignVertical: 'top',
+  },
+  addEntryButton: {
+    alignSelf: 'flex-end',
+    backgroundColor: COLORS.primary,
+    borderRadius: 6,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+  },
+  addEntryButtonDisabled: {
+    backgroundColor: COLORS.disabled,
+  },
+  addEntryButtonText: {
+    fontSize: TYPOGRAPHY.fontSizeSmall,
+    color: COLORS.surface,
+    fontWeight: '700',
+  },
+  sessionEntryList: {
+    gap: SPACING.sm,
+    marginTop: SPACING.md,
+  },
+  sessionEntry: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 8,
+    padding: SPACING.sm,
+    gap: SPACING.sm,
+  },
+  sessionEntryContent: {
+    flex: 1,
+  },
+  sessionEntryTime: {
+    fontSize: TYPOGRAPHY.fontSizeSmall,
+    color: COLORS.primary,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  sessionEntryText: {
+    fontSize: TYPOGRAPHY.fontSizeBase,
+    color: COLORS.text,
+    lineHeight: 21,
+  },
+  sessionEntryActions: {
+    alignItems: 'flex-end',
+    gap: SPACING.xs,
+  },
+  editEntryButton: {
+    paddingVertical: SPACING.xs,
+  },
+  editEntryButtonText: {
+    fontSize: TYPOGRAPHY.fontSizeSmall,
+    color: COLORS.primary,
+    fontWeight: '600',
+  },
+  deleteEntryButton: {
+    paddingVertical: SPACING.xs,
+  },
+  deleteEntryButtonText: {
+    fontSize: TYPOGRAPHY.fontSizeSmall,
+    color: COLORS.error,
+    fontWeight: '600',
+  },
+  sessionSummaryLabel: {
+    fontSize: TYPOGRAPHY.fontSizeSmall,
+    color: COLORS.textLight,
+    fontWeight: '600',
+    marginTop: SPACING.md,
+    marginBottom: SPACING.xs,
   },
   pickerButton: {
     backgroundColor: COLORS.surface,
@@ -1086,10 +1501,20 @@ const styles = StyleSheet.create({
     padding: SPACING.lg,
     maxHeight: '70%',
   },
+  reflectionModalContent: {
+    maxHeight: '90%',
+  },
   modalTitle: {
     fontSize: TYPOGRAPHY.fontSizeLarge,
     fontWeight: '600',
     color: COLORS.text,
+    marginBottom: SPACING.md,
+    textAlign: 'center',
+  },
+  reflectionIntro: {
+    fontSize: TYPOGRAPHY.fontSizeSmall,
+    color: COLORS.textLight,
+    lineHeight: 18,
     marginBottom: SPACING.md,
     textAlign: 'center',
   },
@@ -1126,6 +1551,16 @@ const styles = StyleSheet.create({
     gap: SPACING.md,
     marginTop: SPACING.sm,
   },
+  reflectionActions: {
+    gap: SPACING.sm,
+    marginTop: SPACING.sm,
+  },
+  reflectionContinueButton: {
+    alignItems: 'center',
+    backgroundColor: COLORS.background,
+    borderRadius: 8,
+    padding: SPACING.sm,
+  },
   modalActionButton: {
     flex: 1,
     padding: SPACING.md,
@@ -1155,5 +1590,25 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSizeBase,
     color: COLORS.error,
     fontWeight: '600',
+  },
+  skipReflectionButton: {
+    alignItems: 'center',
+    padding: SPACING.sm,
+  },
+  skipReflectionButtonText: {
+    fontSize: TYPOGRAPHY.fontSizeSmall,
+    color: COLORS.textLight,
+    fontWeight: '600',
+  },
+  completeReflectionButton: {
+    alignItems: 'center',
+    backgroundColor: '#D69E2E',
+    borderRadius: 8,
+    padding: SPACING.md,
+  },
+  completeReflectionButtonText: {
+    fontSize: TYPOGRAPHY.fontSizeBase,
+    color: COLORS.surface,
+    fontWeight: '700',
   },
 });

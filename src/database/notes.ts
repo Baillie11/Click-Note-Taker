@@ -18,6 +18,7 @@ export async function createNote(
     // A finish time is data, not an explicit status change.
     status: data?.status || 'incomplete',
     rawContent: data?.rawContent || '',
+    sessionEntries: data?.sessionEntries || '[]',
     audioUri: data?.audioUri,
     transcript: data?.transcript,
     timeIn: data?.timeIn || now,
@@ -38,15 +39,16 @@ export async function createNote(
 
   await db.runAsync(
     `INSERT INTO notes (
-      id, clientId, rawContent, audioUri, transcript, timeIn, timeOut,
+      id, clientId, rawContent, sessionEntries, audioUri, transcript, timeIn, timeOut,
       location, supportCategory, goalsSupported, activitiesCompleted,
       observations, risksIncidents, medicationAssistance, nextSteps,
       workerName, workerSignature, status, createdAt, updatedAt
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       note.id,
       note.clientId,
       note.rawContent,
+      note.sessionEntries || '[]',
       note.audioUri || null,
       note.transcript || null,
       note.timeIn,
@@ -115,13 +117,14 @@ export async function updateNote(
 
   await db.runAsync(
     `UPDATE notes SET
-      rawContent = ?, audioUri = ?, transcript = ?, timeIn = ?, timeOut = ?,
+      rawContent = ?, sessionEntries = ?, audioUri = ?, transcript = ?, timeIn = ?, timeOut = ?,
       location = ?, supportCategory = ?, goalsSupported = ?, activitiesCompleted = ?,
       observations = ?, risksIncidents = ?, medicationAssistance = ?, nextSteps = ?,
       workerName = ?, workerSignature = ?, status = ?, updatedAt = ?
      WHERE id = ?`,
     [
       updated.rawContent,
+      updated.sessionEntries || '[]',
       updated.audioUri || null,
       updated.transcript || null,
       updated.timeIn,

@@ -19,13 +19,15 @@ export async function createClient(
   };
 
   await db.runAsync(
-    `INSERT INTO clients (id, fullName, preferredName, ndisNumber, notes, createdAt, updatedAt)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO clients (id, fullName, preferredName, ndisNumber, address, sessionSummaryPromptIds, notes, createdAt, updatedAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       client.id,
       client.fullName,
       client.preferredName || null,
       client.ndisNumber || null,
+      client.address || null,
+      client.sessionSummaryPromptIds || '[]',
       client.notes || null,
       client.createdAt,
       client.updatedAt,
@@ -79,12 +81,14 @@ export async function updateClient(
 
   await db.runAsync(
     `UPDATE clients 
-     SET fullName = ?, preferredName = ?, ndisNumber = ?, notes = ?, updatedAt = ?
+     SET fullName = ?, preferredName = ?, ndisNumber = ?, address = ?, sessionSummaryPromptIds = ?, notes = ?, updatedAt = ?
      WHERE id = ?`,
     [
       updated.fullName,
       updated.preferredName || null,
       updated.ndisNumber || null,
+      updated.address || null,
+      updated.sessionSummaryPromptIds || '[]',
       updated.notes || null,
       updated.updatedAt,
       id,
@@ -111,9 +115,9 @@ export async function searchClients(query: string): Promise<Client[]> {
   const searchTerm = `%${query}%`;
   const result = await db.getAllAsync<Client>(
     `SELECT * FROM clients 
-     WHERE fullName LIKE ? OR preferredName LIKE ? OR ndisNumber LIKE ?
+     WHERE fullName LIKE ? OR preferredName LIKE ? OR ndisNumber LIKE ? OR address LIKE ?
      ORDER BY fullName ASC`,
-    [searchTerm, searchTerm, searchTerm]
+    [searchTerm, searchTerm, searchTerm, searchTerm]
   );
   return result;
 }

@@ -23,6 +23,13 @@ import {
 } from '../../database';
 import { Client, Note, NoteStatus, RootStackParamList } from '../../types';
 import { formatAustralianDateTime, getRelativeTime } from '../../utils/dateTime';
+import { parseSessionEntries } from '../../utils/sessionEntries';
+import {
+  SESSION_SUMMARY_PROMPTS,
+  SessionSummaryPromptId,
+  parseSessionSummaryPromptIds,
+  serializeSessionSummaryPromptIds,
+} from '../../utils/sessionSummaryPrompts';
 import { COLORS, TYPOGRAPHY, SPACING } from '../../constants';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -30,6 +37,16 @@ type ClientDetailRouteProp = RouteProp<RootStackParamList, 'ClientDetail'>;
 
 function getNoteStatus(note: Note): NoteStatus {
   return note.status || 'incomplete';
+}
+
+function getNotePreview(note: Note): string {
+  const summary = note.rawContent?.trim();
+  if (summary) return summary;
+
+  const entries = parseSessionEntries(note.sessionEntries);
+  if (entries.length > 0) return entries[entries.length - 1].text;
+
+  return 'No session notes entered yet.';
 }
 
 const NOTE_STATUS_LABELS: Record<NoteStatus, string> = {
@@ -83,6 +100,8 @@ export function ClientDetailScreen() {
   const [editName, setEditName] = useState('');
   const [editPreferredName, setEditPreferredName] = useState('');
   const [editNdisNumber, setEditNdisNumber] = useState('');
+  const [editAddress, setEditAddress] = useState('');
+  const [editSessionSummaryPromptIds, setEditSessionSummaryPromptIds] = useState<SessionSummaryPromptId[]>([]);
   const [editNotes, setEditNotes] = useState('');
 
   const loadData = useCallback(async () => {
@@ -93,6 +112,8 @@ export function ClientDetailScreen() {
         setEditName(clientData.fullName);
         setEditPreferredName(clientData.preferredName || '');
         setEditNdisNumber(clientData.ndisNumber || '');
+        setEditAddress(clientData.address || '');
+        setEditSessionSummaryPromptIds(parseSessionSummaryPromptIds(clientData.sessionSummaryPromptIds));
         setEditNotes(clientData.notes || '');
       }
       const notesData = await getNotesByClientId(clientId);
@@ -121,6 +142,8 @@ export function ClientDetailScreen() {
         fullName: editName.trim(),
         preferredName: editPreferredName.trim() || undefined,
         ndisNumber: editNdisNumber.trim() || undefined,
+        address: editAddress.trim() || undefined,
+        sessionSummaryPromptIds: serializeSessionSummaryPromptIds(editSessionSummaryPromptIds),
         notes: editNotes.trim() || undefined,
       });
       setShowEditModal(false);
@@ -194,7 +217,7 @@ export function ClientDetailScreen() {
       </View>
       <Text style={styles.noteTime}>{getRelativeTime(item.updatedAt)}</Text>
       <Text style={styles.noteContent} numberOfLines={3}>
-        {item.rawContent || '[Empty note]'}
+        {getNotePreview(item)}
       </Text>
       {item.audioUri && (
         <Text style={styles.audioIndicator}>🎤 Voice recording attached</Text>
@@ -211,6 +234,15 @@ export function ClientDetailScreen() {
       </SafeAreaView>
     );
   }
+
+  const noteCounts = notes.reduce(
+    (counts, currentNote) => {
+      counts.total += 1;
+      counts[getNoteStatus(currentNote)] += 1;
+      return counts;
+    },
+    { total: 0, incomplete: 0, completed: 0, submitted: 0 }
+  );
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -236,17 +268,50 @@ export function ClientDetailScreen() {
         {client.ndisNumber && (
           <Text style={styles.ndisNumber}>NDIS: {client.ndisNumber}</Text>
         )}
+        {client.address && (
+          <Text style={styles.clientAddress}>{client.address}</Text>
+        )}
       </View>
 
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Notes ({notes.length})</Text>
+          <Text style={styles.sectionTitle}>Notes</Text>
           <TouchableOpacity
             style={styles.addNoteButton}
             onPress={() => navigation.navigate('NoteEditor', { clientId })}
           >
             <Text style={styles.addNoteButtonText}>+ New Note</Text>
           </TouchableOpacity>
+        </View>
+
+        <View
+          style={styles.statusSummary}
+          accessibilityLabel={`${noteCounts.total} total notes, ${noteCounts.incomplete} incomplete, ${noteCounts.completed} complete, ${noteCounts.submitted} submitted`}
+        >
+          <View style={[styles.statusSummaryItem, styles.statusSummaryDivider]}>
+            <Text style={styles.statusSummaryTotal}>{noteCounts.total}</Text>
+            <Text style={styles.statusSummaryLabel} numberOfLines={1} adjustsFontSizeToFit>
+              Total
+            </Text>
+          </View>
+          <View style={[styles.statusSummaryItem, styles.statusSummaryDivider]}>
+            <Text style={styles.statusSummaryIncomplete}>{noteCounts.incomplete}</Text>
+            <Text style={styles.statusSummaryLabel} numberOfLines={1} adjustsFontSizeToFit>
+              Incomplete
+            </Text>
+          </View>
+          <View style={[styles.statusSummaryItem, styles.statusSummaryDivider]}>
+            <Text style={styles.statusSummaryCompleted}>{noteCounts.completed}</Text>
+            <Text style={styles.statusSummaryLabel} numberOfLines={1} adjustsFontSizeToFit>
+              Complete
+            </Text>
+          </View>
+          <View style={styles.statusSummaryItem}>
+            <Text style={styles.statusSummarySubmitted}>{noteCounts.submitted}</Text>
+            <Text style={styles.statusSummaryLabel} numberOfLines={1} adjustsFontSizeToFit>
+              Submitted
+            </Text>
+          </View>
         </View>
 
         <FlatList
@@ -316,6 +381,16 @@ export function ClientDetailScreen() {
                 keyboardType="numeric"
               />
 
+              <Text style={styles.inputLabel}>Client Address</Text>
+              <TextInput
+                style={styles.modalInput}
+                value={editAddress}
+                onChangeText={setEditAddress}
+                placeholder="Client address (optional)"
+                placeholderTextColor={COLORS.textMuted}
+                autoCapitalize="words"
+              />
+
               <Text style={styles.inputLabel}>Notes</Text>
               <TextInput
                 style={[styles.modalInput, styles.notesInput]}
@@ -326,6 +401,32 @@ export function ClientDetailScreen() {
                 multiline
                 numberOfLines={4}
               />
+
+              <Text style={styles.promptSectionTitle}>Session Summary Prompts</Text>
+              <Text style={styles.promptSectionHelper}>
+                Select the questions to ask when finishing this client's sessions.
+              </Text>
+              {SESSION_SUMMARY_PROMPTS.map((prompt) => {
+                const isSelected = editSessionSummaryPromptIds.includes(prompt.id);
+                return (
+                  <TouchableOpacity
+                    key={prompt.id}
+                    style={styles.promptOption}
+                    onPress={() => setEditSessionSummaryPromptIds((current) =>
+                      isSelected
+                        ? current.filter((id) => id !== prompt.id)
+                        : [...current, prompt.id]
+                    )}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: isSelected }}
+                  >
+                    <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>
+                      {isSelected && <Text style={styles.checkboxMark}>✓</Text>}
+                    </View>
+                    <Text style={styles.promptOptionText}>{prompt.question}</Text>
+                  </TouchableOpacity>
+                );
+              })}
 
               <View style={styles.modalButtons}>
                 <TouchableOpacity
@@ -430,6 +531,12 @@ const styles = StyleSheet.create({
     color: COLORS.textLight,
     marginTop: 4,
   },
+  clientAddress: {
+    fontSize: TYPOGRAPHY.fontSizeBase,
+    color: COLORS.textLight,
+    marginTop: 4,
+    textAlign: 'center',
+  },
   section: {
     flex: 1,
     padding: SPACING.md,
@@ -455,6 +562,54 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSizeBase,
     fontWeight: '600',
     color: COLORS.surface,
+  },
+  statusSummary: {
+    minHeight: 72,
+    flexDirection: 'row',
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 8,
+    marginBottom: SPACING.md,
+  },
+  statusSummaryItem: {
+    flex: 1,
+    minWidth: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: SPACING.xs,
+    paddingVertical: SPACING.sm,
+  },
+  statusSummaryDivider: {
+    borderRightWidth: 1,
+    borderRightColor: COLORS.border,
+  },
+  statusSummaryTotal: {
+    fontSize: TYPOGRAPHY.fontSizeLarge,
+    fontWeight: '700',
+    color: COLORS.primary,
+  },
+  statusSummaryIncomplete: {
+    fontSize: TYPOGRAPHY.fontSizeLarge,
+    fontWeight: '700',
+    color: '#C53030',
+  },
+  statusSummaryCompleted: {
+    fontSize: TYPOGRAPHY.fontSizeLarge,
+    fontWeight: '700',
+    color: '#975A16',
+  },
+  statusSummarySubmitted: {
+    fontSize: TYPOGRAPHY.fontSizeLarge,
+    fontWeight: '700',
+    color: '#276749',
+  },
+  statusSummaryLabel: {
+    width: '100%',
+    marginTop: 2,
+    fontSize: TYPOGRAPHY.fontSizeSmall,
+    color: COLORS.textLight,
+    textAlign: 'center',
   },
   notesList: {
     paddingBottom: SPACING.md,
@@ -613,6 +768,51 @@ const styles = StyleSheet.create({
     height: 100,
     textAlignVertical: 'top',
     paddingTop: SPACING.sm,
+  },
+  promptSectionTitle: {
+    fontSize: TYPOGRAPHY.fontSizeMedium,
+    fontWeight: '600',
+    color: COLORS.text,
+    marginTop: SPACING.sm,
+  },
+  promptSectionHelper: {
+    fontSize: TYPOGRAPHY.fontSizeSmall,
+    color: COLORS.textMuted,
+    marginTop: SPACING.xs,
+    marginBottom: SPACING.sm,
+  },
+  promptOption: {
+    minHeight: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: SPACING.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: COLORS.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: SPACING.sm,
+  },
+  checkboxSelected: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  checkboxMark: {
+    color: COLORS.surface,
+    fontSize: TYPOGRAPHY.fontSizeBase,
+    fontWeight: '700',
+  },
+  promptOptionText: {
+    flex: 1,
+    fontSize: TYPOGRAPHY.fontSizeBase,
+    color: COLORS.text,
+    lineHeight: 21,
   },
   modalButtons: {
     flexDirection: 'row',

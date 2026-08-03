@@ -2,7 +2,7 @@
 
 **Powered by Click eCommerce**
 
-A secure, production-ready React Native (Expo) app designed for NDIS support workers in Australia. Create and manage progress notes, convert to NDIS format, and organize client information—all protected by PIN and biometric security.
+A beta React Native (Expo) app designed for NDIS support workers in Australia. Create and manage progress notes, prepare structured support-session reports, and organise client information with PIN and optional biometric access controls.
 
 ## Features
 
@@ -35,7 +35,7 @@ A secure, production-ready React Native (Expo) app designed for NDIS support wor
 - **PIN Protection**: 4-6 digit PIN required on first launch
 - **Biometric Unlock**: Optional Face ID / Fingerprint authentication
 - **1-Minute Grace Period**: Optional setting to stay unlocked briefly
-- **Secure Storage**: PIN hashed and stored via expo-secure-store
+- **Secure PIN Storage**: PIN hash stored via expo-secure-store
 
 ### Coming Soon
 - **Incident Reports**: Scaffold in place for future incident reporting
@@ -138,12 +138,12 @@ ClickNoteTaker/
 
 ## Data Storage
 
-All data is stored locally on the device:
+App data is stored locally on the device:
 - **Database**: SQLite via expo-sqlite
 - **PIN**: Hashed and stored in expo-secure-store
 - **Audio**: Stored in app's document directory
 
-No data is ever uploaded to external servers.
+The app does not currently upload records to a Click Note Taker server. SQLite note data is not currently represented as database-level encrypted; review `docs/PRIVACY_POLICY_DRAFT.md` before external testing.
 
 ## Customization
 

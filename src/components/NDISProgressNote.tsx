@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { NDISProgressNote as NDISProgressNoteType } from '../types';
 import { COLORS, TYPOGRAPHY, SPACING } from '../constants';
+import { hasProgressNoteValue } from '../utils/ndisFormatter';
 
 interface NDISProgressNoteProps {
   progressNote: NDISProgressNoteType;
@@ -9,6 +10,8 @@ interface NDISProgressNoteProps {
 
 export function NDISProgressNoteView({ progressNote }: NDISProgressNoteProps) {
   const renderField = (label: string, value: string) => {
+    if (!hasProgressNoteValue(value)) return null;
+
     const isPlaceholder = value.startsWith('[');
     
     return (
@@ -22,6 +25,8 @@ export function NDISProgressNoteView({ progressNote }: NDISProgressNoteProps) {
   };
 
   const renderSection = (title: string, content: string) => {
+    if (!hasProgressNoteValue(content)) return null;
+
     const isPlaceholder = content.startsWith('[');
     
     return (
@@ -37,7 +42,7 @@ export function NDISProgressNoteView({ progressNote }: NDISProgressNoteProps) {
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       <View style={styles.header}>
-        <Text style={styles.title}>NDIS Progress Note</Text>
+        <Text style={styles.title}>Support Session Report</Text>
       </View>
 
       <View style={styles.basicInfo}>
@@ -52,33 +57,42 @@ export function NDISProgressNoteView({ progressNote }: NDISProgressNoteProps) {
             {renderField('Time Out', progressNote.timeOut)}
           </View>
         </View>
-        
+        {renderField('Duration', progressNote.duration)}
         {renderField('Location', progressNote.location)}
       </View>
 
       <View style={styles.divider} />
 
-      <View style={styles.supportDetails}>
-        <Text style={styles.groupTitle}>Support Details</Text>
-        {renderField('Support Category', progressNote.supportCategory)}
-        {renderField('Goals Supported', progressNote.goalsSupported)}
-      </View>
+      {hasProgressNoteValue(progressNote.supportCategory) && (
+        <>
+          <View style={styles.supportDetails}>
+            <Text style={styles.groupTitle}>Support Details</Text>
+            {renderField('Support Category', progressNote.supportCategory)}
+          </View>
+          <View style={styles.divider} />
+        </>
+      )}
 
-      <View style={styles.divider} />
-
-      {renderSection('Activities Completed', progressNote.activitiesCompleted)}
-      {renderSection('Observations / Participant Response', progressNote.observations)}
+      {renderSection('Session Notes', progressNote.sessionTimeline)}
+      {renderSection('Session Summary', progressNote.sessionSummary)}
+      {renderSection('Activities and Supports', progressNote.activitiesCompleted)}
+      {renderSection('Participant Response', progressNote.observations)}
+      {renderSection('Goals Supported', progressNote.goalsSupported)}
       {renderSection('Risks / Incidents', progressNote.risksIncidents)}
       {renderSection('Medication Assistance', progressNote.medicationAssistance)}
-      {renderSection('Next Steps / Recommendations', progressNote.nextSteps)}
+      {renderSection('Next Steps', progressNote.nextSteps)}
 
-      <View style={styles.divider} />
-
-      <View style={styles.workerDetails}>
-        <Text style={styles.groupTitle}>Worker Details</Text>
-        {renderField('Worker Name', progressNote.workerName)}
-        {renderField('Signature', progressNote.workerSignature)}
-      </View>
+      {(hasProgressNoteValue(progressNote.workerName) ||
+        hasProgressNoteValue(progressNote.workerSignature)) && (
+        <>
+          <View style={styles.divider} />
+          <View style={styles.workerDetails}>
+            <Text style={styles.groupTitle}>Worker Details</Text>
+            {renderField('Worker Name', progressNote.workerName)}
+            {renderField('Signature', progressNote.workerSignature)}
+          </View>
+        </>
+      )}
 
       <View style={styles.spacer} />
     </ScrollView>

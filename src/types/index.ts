@@ -4,6 +4,8 @@ export interface Client {
   fullName: string;
   preferredName?: string;
   ndisNumber?: string;
+  address?: string;
+  sessionSummaryPromptIds?: string;
   notes?: string;
   createdAt: string;
   updatedAt: string;
@@ -11,12 +13,19 @@ export interface Client {
 
 export type NoteStatus = 'incomplete' | 'completed' | 'submitted';
 
+export interface SessionEntry {
+  id: string;
+  timestamp: string;
+  text: string;
+}
+
 // Note entity
 export interface Note {
   id: string;
   clientId: string;
   status: NoteStatus;
   rawContent: string;
+  sessionEntries?: string;
   audioUri?: string;
   transcript?: string;
   timeIn: string;
@@ -77,10 +86,13 @@ export interface NDISProgressNote {
   date: string;
   timeIn: string;
   timeOut: string;
+  duration: string;
   location: string;
   supportCategory: string;
   goalsSupported: string;
+  sessionSummary: string;
   activitiesCompleted: string;
+  sessionTimeline: string;
   observations: string;
   risksIncidents: string;
   medicationAssistance: string;

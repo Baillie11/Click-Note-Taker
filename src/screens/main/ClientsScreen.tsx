@@ -31,6 +31,7 @@ export function ClientsScreen() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [newClientName, setNewClientName] = useState('');
   const [newClientNdis, setNewClientNdis] = useState('');
+  const [newClientAddress, setNewClientAddress] = useState('');
 
   const loadClients = useCallback(async () => {
     try {
@@ -81,10 +82,12 @@ export function ClientsScreen() {
       await createClient({
         fullName: newClientName.trim(),
         ndisNumber: newClientNdis.trim() || undefined,
+        address: newClientAddress.trim() || undefined,
       });
       setShowAddModal(false);
       setNewClientName('');
       setNewClientNdis('');
+      setNewClientAddress('');
       loadClients();
     } catch (error) {
       console.error('Error creating client:', error);
@@ -203,6 +206,16 @@ export function ClientsScreen() {
               keyboardType="numeric"
             />
 
+            <Text style={styles.inputLabel}>Client Address (optional)</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Enter client's address"
+              placeholderTextColor={COLORS.textMuted}
+              value={newClientAddress}
+              onChangeText={setNewClientAddress}
+              autoCapitalize="words"
+            />
+
             <View style={styles.modalButtons}>
               <TouchableOpacity
                 style={[styles.modalButton, styles.cancelButton]}
@@ -210,6 +223,7 @@ export function ClientsScreen() {
                   setShowAddModal(false);
                   setNewClientName('');
                   setNewClientNdis('');
+                  setNewClientAddress('');
                 }}
               >
                 <Text style={styles.cancelButtonText}>Cancel</Text>

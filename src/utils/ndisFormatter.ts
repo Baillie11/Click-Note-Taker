@@ -1,5 +1,11 @@
 import { Note, Client, NDISProgressNote } from '../types';
-import { formatAustralianDate, formatAustralianTime } from './dateTime';
+import { calculateDuration, formatAustralianDate, formatAustralianTime } from './dateTime';
+import { formatSessionEntries, parseSessionEntries } from './sessionEntries';
+
+export function hasProgressNoteValue(value?: string): boolean {
+  const trimmedValue = value?.trim();
+  return trimmedValue !== undefined && trimmedValue !== '' && !trimmedValue.startsWith('[');
+}
 
 /**
  * Convert a raw note to NDIS Progress Note format
@@ -14,85 +20,62 @@ export function convertToNDISProgressNote(
     date: note.timeIn ? formatAustralianDate(note.timeIn) : '[Add date]',
     timeIn: note.timeIn ? formatAustralianTime(note.timeIn) : '[Add time in]',
     timeOut: note.timeOut ? formatAustralianTime(note.timeOut) : '[Add time out]',
+    duration: note.timeOut ? calculateDuration(note.timeIn, note.timeOut) : '[Add time out]',
     location: note.location || '[Add location]',
     supportCategory: note.supportCategory || '[Select support category]',
     goalsSupported: note.goalsSupported || '[Add goals supported]',
-    activitiesCompleted: note.activitiesCompleted || extractActivities(note.rawContent),
-    observations: note.observations || extractObservations(note.rawContent),
-    risksIncidents: note.risksIncidents || '[No risks/incidents reported]',
-    medicationAssistance: note.medicationAssistance || '[N/A or add details]',
-    nextSteps: note.nextSteps || '[Add recommendations]',
+    sessionSummary: note.rawContent?.trim() || '[Add session summary]',
+    activitiesCompleted: note.activitiesCompleted?.trim() || '[Add activities completed]',
+    sessionTimeline: formatSessionEntries(parseSessionEntries(note.sessionEntries)),
+    observations: note.observations?.trim() || '[Add observations / participant response]',
+    risksIncidents: note.risksIncidents?.trim() || '[Add risks or incidents]',
+    medicationAssistance: note.medicationAssistance?.trim() || '[Add medication assistance]',
+    nextSteps: note.nextSteps?.trim() || '[Add recommendations]',
     workerName: note.workerName || '[Add worker name]',
     workerSignature: note.workerSignature || '[Add signature]',
   };
 }
 
 /**
- * Extract activities from raw content (basic extraction, returns placeholder if insufficient)
- */
-function extractActivities(rawContent: string): string {
-  if (!rawContent || rawContent.trim().length < 10) {
-    return '[Add activities completed]';
-  }
-  
-  // If raw content exists, return it as the base for activities
-  // Don't fabricate - let the user refine
-  return rawContent.trim() || '[Add activities completed]';
-}
-
-/**
- * Extract observations from raw content (basic extraction, returns placeholder if insufficient)
- */
-function extractObservations(rawContent: string): string {
-  if (!rawContent || rawContent.trim().length < 10) {
-    return '[Add observations / participant response]';
-  }
-  return '[Add observations based on session]';
-}
-
-/**
  * Format NDIS Progress Note as plain text for copying/sharing
  */
 export function formatNDISProgressNoteAsText(progressNote: NDISProgressNote): string {
-  return `NDIS PROGRESS NOTE
-==================
+  const fields = (values: Array<[string, string]>) =>
+    values
+      .filter(([, value]) => hasProgressNoteValue(value))
+      .map(([label, value]) => `${label}: ${value}`)
+      .join('\n');
+  const section = (title: string, value: string) =>
+    hasProgressNoteValue(value) ? `${title}\n\n${value}` : '';
 
-Participant Name: ${progressNote.participantName}
-Date: ${progressNote.date}
-Time In: ${progressNote.timeIn}
-Time Out: ${progressNote.timeOut}
-Location: ${progressNote.location}
+  const reportParts = [
+    fields([
+      ['Participant Name', progressNote.participantName],
+      ['Date', progressNote.date],
+      ['Time In', progressNote.timeIn],
+      ['Time Out', progressNote.timeOut],
+      ['Duration', progressNote.duration],
+      ['Location', progressNote.location],
+      ['Support Category', progressNote.supportCategory],
+    ]),
+    section('SESSION NOTES', progressNote.sessionTimeline),
+    section('SESSION SUMMARY', progressNote.sessionSummary),
+    section('ACTIVITIES AND SUPPORTS', progressNote.activitiesCompleted),
+    section('PARTICIPANT RESPONSE', progressNote.observations),
+    section('GOALS SUPPORTED', progressNote.goalsSupported),
+    section('RISKS / INCIDENTS', progressNote.risksIncidents),
+    section('MEDICATION ASSISTANCE', progressNote.medicationAssistance),
+    section('NEXT STEPS', progressNote.nextSteps),
+    (() => {
+      const workerDetails = fields([
+        ['Worker Name', progressNote.workerName],
+        ['Signature', progressNote.workerSignature],
+      ]);
+      return workerDetails ? `WORKER DETAILS\n\n${workerDetails}` : '';
+    })(),
+  ].filter(Boolean);
 
-SUPPORT DETAILS
----------------
-Support Category: ${progressNote.supportCategory}
-Goals Supported: ${progressNote.goalsSupported}
-
-ACTIVITIES COMPLETED
---------------------
-${progressNote.activitiesCompleted}
-
-OBSERVATIONS / PARTICIPANT RESPONSE
------------------------------------
-${progressNote.observations}
-
-RISKS / INCIDENTS
------------------
-${progressNote.risksIncidents}
-
-MEDICATION ASSISTANCE
----------------------
-${progressNote.medicationAssistance}
-
-NEXT STEPS / RECOMMENDATIONS
-----------------------------
-${progressNote.nextSteps}
-
-WORKER DETAILS
---------------
-Worker Name: ${progressNote.workerName}
-Signature: ${progressNote.workerSignature}
-`;
+  return `SUPPORT SESSION REPORT\n\n${reportParts.join('\n\n')}\n`;
 }
 
 /**
@@ -108,9 +91,6 @@ export function getIncompleteFields(progressNote: NDISProgressNote): string[] {
     { key: 'timeOut', label: 'Time Out' },
     { key: 'location', label: 'Location' },
     { key: 'supportCategory', label: 'Support Category' },
-    { key: 'goalsSupported', label: 'Goals Supported' },
-    { key: 'activitiesCompleted', label: 'Activities Completed' },
-    { key: 'observations', label: 'Observations' },
     { key: 'workerName', label: 'Worker Name' },
   ];
   
@@ -120,6 +100,14 @@ export function getIncompleteFields(progressNote: NDISProgressNote): string[] {
       incomplete.push(field.label);
     }
   }
+
+  const hasSessionDetail = [
+    progressNote.sessionTimeline,
+    progressNote.sessionSummary,
+    progressNote.activitiesCompleted,
+    progressNote.observations,
+  ].some(hasProgressNoteValue);
+  if (!hasSessionDetail) incomplete.push('Session Notes or Summary');
   
   return incomplete;
 }

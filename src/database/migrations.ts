@@ -79,6 +79,24 @@ const MIGRATIONS = [
       WHERE status = 'completed';
     `,
   },
+  {
+    version: 4,
+    up: `
+      ALTER TABLE notes ADD COLUMN sessionEntries TEXT NOT NULL DEFAULT '[]';
+    `,
+  },
+  {
+    version: 5,
+    up: `
+      ALTER TABLE clients ADD COLUMN address TEXT;
+    `,
+  },
+  {
+    version: 6,
+    up: `
+      ALTER TABLE clients ADD COLUMN sessionSummaryPromptIds TEXT NOT NULL DEFAULT '[]';
+    `,
+  },
 ];
 
 /**

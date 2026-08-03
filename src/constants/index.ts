@@ -1,5 +1,5 @@
 export const APP_NAME = 'Click Note Taker';
-export const APP_VERSION = '1.0.0';
+export const APP_VERSION = '1.1.0-beta.1';
 export const APP_TAGLINE = 'Powered by Click eCommerce';
 export const COMPANY_URL = 'https://www.clickecommerce.com.au';
 

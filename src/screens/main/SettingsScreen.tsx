@@ -359,8 +359,9 @@ export function SettingsScreen() {
           
           <View style={styles.infoBox}>
             <Text style={styles.infoText}>
-              All your data is stored securely on this device. Notes and client 
-              information are never uploaded to external servers.
+              Notes and client information are stored locally on this device and
+              are not uploaded by Click Note Taker. Protect your device and follow
+              your organisation's privacy and record-keeping requirements.
             </Text>
           </View>
         </View>
