@@ -1,17 +1,27 @@
 # Beta Release Checklist
 
-## Blocking before community testing
+## Completed release foundation
 
-- Upgrade Expo SDK incrementally from SDK 50 to a currently supported release.
-- Replace placeholder icon, adaptive icon, and splash artwork with store-ready assets.
-- Create permanent Android upload credentials; do not publish with the debug key.
+- [x] Upgrade to Expo SDK 57 and pass all Expo Doctor checks.
+- [x] Configure one generated-native codebase for Android and iOS.
+- [x] Add store-ready icon, adaptive icon, and splash assets.
+- [x] Link the app to Expo/EAS and create managed Android credentials.
+- [x] Build local Android APK and App Bundle artifacts targeting Android API 36.
+- [x] Add an in-app control to permanently erase local app data.
+- [x] Add preview and production EAS build profiles.
+
+## Blocking before public distribution
+
 - Create Google Play Console and Apple Developer/App Store Connect records.
 - Publish a privacy policy at a stable public URL and nominate a support email address.
 - Complete Google Data Safety and Apple App Privacy declarations.
-- Build and test an Android App Bundle and an iOS archive.
+- Build and test a production-signed Android App Bundle and an iOS archive.
 - Verify database migrations preserve existing clients and notes during updates.
 - Test microphone, biometrics, clipboard, sharing, keyboard, and app locking on both platforms.
 - Decide whether local note data requires database-level encryption before external testing.
+
+Local Gradle artifacts use a debug certificate and are suitable only for direct testing.
+Use EAS production builds for Google Play or App Store submission.
 
 ## Recommended beta rollout
 
