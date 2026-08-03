@@ -52,7 +52,9 @@
           "faceIDPermission": "Allow Click Note Taker to use Face ID to unlock the app."
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-sharing",
+      "expo-sqlite"
     ]
   }
 }
