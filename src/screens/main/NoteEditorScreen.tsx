@@ -9,6 +9,8 @@ import {
   Alert,
   Share,
   Modal,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
@@ -109,6 +111,7 @@ export function NoteEditorScreen() {
   const [timeOutDateInput, setTimeOutDateInput] = useState(formatAustralianDate(getCurrentISOTimestamp()));
   const [timeOutTimeInput, setTimeOutTimeInput] = useState(formatAustralianTime(getCurrentISOTimestamp()));
   const [editingSessionEntryId, setEditingSessionEntryId] = useState<string | null>(null);
+  const [sessionEntryTextInput, setSessionEntryTextInput] = useState('');
   const [sessionEntryDateInput, setSessionEntryDateInput] = useState(formatAustralianDate(getCurrentISOTimestamp()));
   const [sessionEntryTimeInput, setSessionEntryTimeInput] = useState(formatAustralianTime(getCurrentISOTimestamp()));
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -295,15 +298,22 @@ export function NoteEditorScreen() {
     setHasUnsavedChanges(true);
   };
 
-  const openSessionEntryTimeEditor = (entry: SessionEntry) => {
+  const openSessionEntryEditor = (entry: SessionEntry) => {
     setEditingSessionEntryId(entry.id);
+    setSessionEntryTextInput(entry.text);
     setSessionEntryDateInput(formatAustralianDate(entry.timestamp));
     setSessionEntryTimeInput(formatAustralianTime(entry.timestamp));
     setShowSessionEntryTimeEditor(true);
   };
 
-  const handleApplySessionEntryTime = () => {
+  const handleApplySessionEntry = () => {
     if (!editingSessionEntryId) return;
+
+    const nextText = sessionEntryTextInput.trim();
+    if (!nextText) {
+      Alert.alert('Note Required', 'Enter some text for this note.');
+      return;
+    }
 
     try {
       const nextTimestamp = parseAustralianDateToISO(
@@ -317,7 +327,9 @@ export function NoteEditorScreen() {
       setSessionEntries((entries) =>
         entries
           .map((entry) =>
-            entry.id === editingSessionEntryId ? { ...entry, timestamp: nextTimestamp } : entry
+            entry.id === editingSessionEntryId
+              ? { ...entry, text: nextText, timestamp: nextTimestamp }
+              : entry
           )
           .sort((first, second) => first.timestamp.localeCompare(second.timestamp))
       );
@@ -763,10 +775,10 @@ export function NoteEditorScreen() {
                     </View>
                     <View style={styles.sessionEntryActions}>
                       <TouchableOpacity
-                        onPress={() => openSessionEntryTimeEditor(entry)}
+                        onPress={() => openSessionEntryEditor(entry)}
                         style={styles.editEntryButton}
                       >
-                        <Text style={styles.editEntryButtonText}>Edit Time</Text>
+                        <Text style={styles.editEntryButtonText}>Edit Note</Text>
                       </TouchableOpacity>
                       <TouchableOpacity
                         onPress={() => handleDeleteSessionEntry(entry.id)}
@@ -870,9 +882,25 @@ export function NoteEditorScreen() {
         transparent
         onRequestClose={() => setShowSessionEntryTimeEditor(false)}
       >
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Edit Note Time</Text>
+            <Text style={styles.modalTitle}>Edit Note</Text>
+
+            <View style={styles.field}>
+              <Text style={styles.fieldLabel}>Note</Text>
+              <TextInput
+                style={[styles.fieldInput, styles.multilineInput]}
+                value={sessionEntryTextInput}
+                onChangeText={setSessionEntryTextInput}
+                placeholder="Enter note"
+                placeholderTextColor={COLORS.textMuted}
+                multiline
+                autoFocus
+              />
+            </View>
 
             <View style={styles.field}>
               <Text style={styles.fieldLabel}>Date</Text>
@@ -905,13 +933,13 @@ export function NoteEditorScreen() {
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.modalActionButton, styles.modalSaveAction]}
-                onPress={handleApplySessionEntryTime}
+                onPress={handleApplySessionEntry}
               >
                 <Text style={styles.modalSaveActionText}>Apply</Text>
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       <Modal
