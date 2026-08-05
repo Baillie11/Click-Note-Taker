@@ -8,6 +8,7 @@ import { AuthProvider } from './src/context/AuthContext';
 import { AppNavigator } from './src/navigation/AppNavigator';
 import { getDatabase } from './src/database';
 import { COLORS } from './src/constants';
+import { reconcileNoteReminders } from './src/utils/noteReminders';
 
 export default function App() {
   const [isDbReady, setIsDbReady] = useState(false);
@@ -20,6 +21,7 @@ export default function App() {
   const initializeDatabase = async () => {
     try {
       await getDatabase();
+      reconcileNoteReminders().catch(error => console.error('Reminder setup error:', error));
       setIsDbReady(true);
     } catch (error) {
       console.error('Database initialization error:', error);

@@ -7,6 +7,7 @@ export interface Client {
   address?: string;
   sessionSummaryPromptIds?: string;
   customSessionSummaryPrompts?: string;
+  shifts?: string;
   notes?: string;
   createdAt: string;
   updatedAt: string;
@@ -29,6 +30,13 @@ export interface CustomPromptResponse extends CustomSessionSummaryPrompt {
   response: string;
 }
 
+export interface ClientShift {
+  id: string;
+  weekday: number;
+  startTime: string;
+  endTime: string;
+}
+
 // Note entity
 export interface Note {
   id: string;
@@ -49,6 +57,7 @@ export interface Note {
   medicationAssistance?: string;
   nextSteps?: string;
   customPromptResponses?: string;
+  scheduledShiftEnd?: string;
   workerName?: string;
   workerSignature?: string;
   createdAt: string;

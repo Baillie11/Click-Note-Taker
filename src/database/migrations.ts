@@ -104,6 +104,13 @@ const MIGRATIONS = [
       ALTER TABLE notes ADD COLUMN customPromptResponses TEXT NOT NULL DEFAULT '[]';
     `,
   },
+  {
+    version: 8,
+    up: `
+      ALTER TABLE clients ADD COLUMN shifts TEXT NOT NULL DEFAULT '[]';
+      ALTER TABLE notes ADD COLUMN scheduledShiftEnd TEXT;
+    `,
+  },
 ];
 
 /**

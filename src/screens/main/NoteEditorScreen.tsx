@@ -44,6 +44,8 @@ import {
   serializeSessionEntries,
 } from '../../utils/sessionEntries';
 import { COLORS, TYPOGRAPHY, SPACING, AUTOSAVE_INTERVAL } from '../../constants';
+import { getScheduledShiftEnd, parseClientShifts } from '../../utils/clientShifts';
+import { cancelNoteReminders, scheduleNoteReminders } from '../../utils/noteReminders';
 import {
   parseCustomPromptResponses,
   parseCustomPrompts,
@@ -88,6 +90,7 @@ export function NoteEditorScreen() {
   const [timeIn, setTimeIn] = useState(getCurrentISOTimestamp());
   const [timeOut, setTimeOut] = useState<string | undefined>();
   const [noteStatus, setNoteStatus] = useState<NoteStatus>('incomplete');
+  const [scheduledShiftEnd, setScheduledShiftEnd] = useState<string | undefined>();
   const [location, setLocation] = useState('');
   const [supportCategory, setSupportCategory] = useState('');
   const [goalsSupported, setGoalsSupported] = useState('');
@@ -150,6 +153,7 @@ export function NoteEditorScreen() {
     timeIn,
     timeOut,
     noteStatus,
+    scheduledShiftEnd,
     location,
     supportCategory,
     goalsSupported,
@@ -183,6 +187,7 @@ export function NoteEditorScreen() {
           setTimeIn(noteData.timeIn);
           setTimeOut(noteData.timeOut);
           setNoteStatus(getStatusFromNote(noteData));
+          setScheduledShiftEnd(noteData.scheduledShiftEnd);
           setLocation(noteData.location || '');
           setSupportCategory(noteData.supportCategory || '');
           setGoalsSupported(noteData.goalsSupported || '');
@@ -196,7 +201,11 @@ export function NoteEditorScreen() {
         }
       } else {
         // Create a new note immediately
+        const noteTime = getCurrentISOTimestamp();
+        const matchedShiftEnd = getScheduledShiftEnd(noteTime, parseClientShifts(clientData?.shifts));
         const newNote = await createNote(clientId, {
+          timeIn: noteTime,
+          scheduledShiftEnd: matchedShiftEnd,
           location: clientData?.address || userProfile.defaultLocation || undefined,
           workerName: userProfile.workerName || undefined,
           workerSignature: userProfile.workerSignature || userProfile.workerName || undefined,
@@ -205,9 +214,14 @@ export function NoteEditorScreen() {
         noteIdRef.current = newNote.id;
         setTimeIn(newNote.timeIn);
         setNoteStatus(newNote.status);
+        setScheduledShiftEnd(newNote.scheduledShiftEnd);
         setLocation(newNote.location || '');
         setWorkerName(newNote.workerName || '');
         setWorkerSignature(newNote.workerSignature || '');
+        if (newNote.scheduledShiftEnd) {
+          scheduleNoteReminders(newNote.id, newNote.scheduledShiftEnd)
+            .catch(error => console.error('Could not schedule note reminders:', error));
+        }
       }
     } catch (error) {
       console.error('Error loading data:', error);
@@ -231,6 +245,7 @@ export function NoteEditorScreen() {
         timeIn,
         timeOut,
         status: noteStatus,
+        scheduledShiftEnd,
         location,
         supportCategory,
         goalsSupported,
@@ -362,6 +377,15 @@ export function NoteEditorScreen() {
       }
 
       setTimeIn(nextTimeIn);
+      const matchedShiftEnd = getScheduledShiftEnd(nextTimeIn, parseClientShifts(client?.shifts));
+      setScheduledShiftEnd(matchedShiftEnd);
+      if (noteIdRef.current) {
+        const currentNoteId = noteIdRef.current;
+        const reminderAction = matchedShiftEnd
+          ? scheduleNoteReminders(currentNoteId, matchedShiftEnd)
+          : cancelNoteReminders(currentNoteId);
+        reminderAction.catch(error => console.error('Could not update note reminders:', error));
+      }
       setHasUnsavedChanges(true);
       setShowTimeInEditor(false);
     } catch (error) {
@@ -425,16 +449,26 @@ export function NoteEditorScreen() {
   };
 
   const handleMarkSubmitted = () => {
-    if (!timeOut) {
-      setTimeOut(getCurrentISOTimestamp());
-    }
+    const submittedTimeOut = timeOut || getCurrentISOTimestamp();
+    setTimeOut(submittedTimeOut);
     setNoteStatus('submitted');
     setHasUnsavedChanges(true);
+    if (noteIdRef.current) {
+      const currentNoteId = noteIdRef.current;
+      Promise.all([
+        cancelNoteReminders(currentNoteId),
+        updateNote(currentNoteId, { status: 'submitted', timeOut: submittedTimeOut }),
+      ]).catch(error => console.error('Could not finalize submitted note:', error));
+    }
   };
 
   const handleReopenNote = () => {
     setNoteStatus(timeOut ? 'completed' : 'incomplete');
     setHasUnsavedChanges(true);
+    if (noteIdRef.current && scheduledShiftEnd) {
+      scheduleNoteReminders(noteIdRef.current, scheduledShiftEnd)
+        .catch(error => console.error('Could not restore note reminders:', error));
+    }
   };
 
   const buildCurrentNote = (baseNote: Note): Note => ({
@@ -444,6 +478,7 @@ export function NoteEditorScreen() {
     timeIn,
     timeOut,
     status: noteStatus,
+    scheduledShiftEnd,
     location,
     supportCategory,
     goalsSupported,

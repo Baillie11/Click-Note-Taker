@@ -21,7 +21,7 @@ import {
   getNotesByClientId, 
   deleteNote 
 } from '../../database';
-import { Client, CustomSessionSummaryPrompt, Note, NoteStatus, RootStackParamList } from '../../types';
+import { Client, ClientShift, CustomSessionSummaryPrompt, Note, NoteStatus, RootStackParamList } from '../../types';
 import { formatAustralianDateTime, getRelativeTime } from '../../utils/dateTime';
 import { parseSessionEntries } from '../../utils/sessionEntries';
 import {
@@ -33,6 +33,7 @@ import {
   serializeCustomPrompts,
 } from '../../utils/sessionSummaryPrompts';
 import { COLORS, TYPOGRAPHY, SPACING } from '../../constants';
+import { WEEKDAYS, isValidShiftTime, normalizeShiftTime, parseClientShifts, serializeClientShifts } from '../../utils/clientShifts';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type ClientDetailRouteProp = RouteProp<RootStackParamList, 'ClientDetail'>;
@@ -106,6 +107,10 @@ export function ClientDetailScreen() {
   const [editSessionSummaryPromptIds, setEditSessionSummaryPromptIds] = useState<SessionSummaryPromptId[]>([]);
   const [editCustomPrompts, setEditCustomPrompts] = useState<CustomSessionSummaryPrompt[]>([]);
   const [newCustomPrompt, setNewCustomPrompt] = useState('');
+  const [editShifts, setEditShifts] = useState<ClientShift[]>([]);
+  const [newShiftWeekday, setNewShiftWeekday] = useState(new Date().getDay());
+  const [newShiftStart, setNewShiftStart] = useState('09:00');
+  const [newShiftEnd, setNewShiftEnd] = useState('17:00');
   const [editNotes, setEditNotes] = useState('');
 
   const loadData = useCallback(async () => {
@@ -119,6 +124,7 @@ export function ClientDetailScreen() {
         setEditAddress(clientData.address || '');
         setEditSessionSummaryPromptIds(parseSessionSummaryPromptIds(clientData.sessionSummaryPromptIds));
         setEditCustomPrompts(parseCustomPrompts(clientData.customSessionSummaryPrompts));
+        setEditShifts(parseClientShifts(clientData.shifts));
         setEditNotes(clientData.notes || '');
       }
       const notesData = await getNotesByClientId(clientId);
@@ -150,6 +156,7 @@ export function ClientDetailScreen() {
         address: editAddress.trim() || undefined,
         sessionSummaryPromptIds: serializeSessionSummaryPromptIds(editSessionSummaryPromptIds),
         customSessionSummaryPrompts: serializeCustomPrompts(editCustomPrompts),
+        shifts: serializeClientShifts(editShifts),
         notes: editNotes.trim() || undefined,
       });
       setShowEditModal(false);
@@ -168,6 +175,22 @@ export function ClientDetailScreen() {
       { id: `custom-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, question },
     ]);
     setNewCustomPrompt('');
+  };
+
+  const handleAddShift = () => {
+    if (!isValidShiftTime(newShiftStart) || !isValidShiftTime(newShiftEnd)) {
+      Alert.alert('Invalid Shift Time', 'Enter shift times in 24-hour format, for example 09:00 or 17:30.');
+      return;
+    }
+    setEditShifts(current => [
+      ...current,
+      {
+        id: `shift-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        weekday: newShiftWeekday,
+        startTime: normalizeShiftTime(newShiftStart),
+        endTime: normalizeShiftTime(newShiftEnd),
+      },
+    ]);
   };
 
   const handleDeleteClient = () => {
@@ -417,6 +440,62 @@ export function ClientDetailScreen() {
                 multiline
                 numberOfLines={4}
               />
+
+              <Text style={styles.promptSectionTitle}>Regular Shifts</Text>
+              <Text style={styles.promptSectionHelper}>
+                Used to remind you when a shift note has not been submitted.
+              </Text>
+              {editShifts.map(shift => (
+                <View key={shift.id} style={styles.shiftRow}>
+                  <View style={styles.shiftDetails}>
+                    <Text style={styles.shiftDay}>{WEEKDAYS[shift.weekday]}</Text>
+                    <Text style={styles.shiftTime}>{shift.startTime} - {shift.endTime}</Text>
+                  </View>
+                  <TouchableOpacity onPress={() => setEditShifts(current => current.filter(item => item.id !== shift.id))}>
+                    <Text style={styles.removePromptButtonText}>Remove</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+              <View style={styles.weekdayPicker}>
+                {WEEKDAYS.map((day, index) => (
+                  <TouchableOpacity
+                    key={day}
+                    style={[styles.weekdayButton, newShiftWeekday === index && styles.weekdayButtonSelected]}
+                    onPress={() => setNewShiftWeekday(index)}
+                  >
+                    <Text style={[styles.weekdayButtonText, newShiftWeekday === index && styles.weekdayButtonTextSelected]}>
+                      {day.slice(0, 3)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <View style={styles.shiftTimeInputs}>
+                <View style={styles.shiftTimeField}>
+                  <Text style={styles.inputLabel}>Start</Text>
+                  <TextInput
+                    style={styles.modalInput}
+                    value={newShiftStart}
+                    onChangeText={setNewShiftStart}
+                    placeholder="09:00"
+                    placeholderTextColor={COLORS.textMuted}
+                    keyboardType="numbers-and-punctuation"
+                  />
+                </View>
+                <View style={styles.shiftTimeField}>
+                  <Text style={styles.inputLabel}>Finish</Text>
+                  <TextInput
+                    style={styles.modalInput}
+                    value={newShiftEnd}
+                    onChangeText={setNewShiftEnd}
+                    placeholder="17:00"
+                    placeholderTextColor={COLORS.textMuted}
+                    keyboardType="numbers-and-punctuation"
+                  />
+                </View>
+              </View>
+              <TouchableOpacity style={styles.addPromptButton} onPress={handleAddShift}>
+                <Text style={styles.addPromptButtonText}>Add Shift</Text>
+              </TouchableOpacity>
 
               <Text style={styles.promptSectionTitle}>Session Summary Prompts</Text>
               <Text style={styles.promptSectionHelper}>
@@ -909,6 +988,62 @@ const styles = StyleSheet.create({
     color: COLORS.surface,
     fontSize: TYPOGRAPHY.fontSizeBase,
     fontWeight: '600',
+  },
+  shiftRow: {
+    minHeight: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+    paddingVertical: SPACING.sm,
+  },
+  shiftDetails: {
+    flex: 1,
+  },
+  shiftDay: {
+    fontSize: TYPOGRAPHY.fontSizeBase,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
+  shiftTime: {
+    fontSize: TYPOGRAPHY.fontSizeSmall,
+    color: COLORS.textLight,
+    marginTop: 2,
+  },
+  weekdayPicker: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.xs,
+    marginVertical: SPACING.sm,
+  },
+  weekdayButton: {
+    minWidth: 44,
+    height: 36,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  weekdayButtonSelected: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  weekdayButtonText: {
+    fontSize: TYPOGRAPHY.fontSizeSmall,
+    color: COLORS.text,
+  },
+  weekdayButtonTextSelected: {
+    color: COLORS.surface,
+    fontWeight: '700',
+  },
+  shiftTimeInputs: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+  },
+  shiftTimeField: {
+    flex: 1,
   },
   modalButtons: {
     flexDirection: 'row',

@@ -19,8 +19,8 @@ export async function createClient(
   };
 
   await db.runAsync(
-    `INSERT INTO clients (id, fullName, preferredName, ndisNumber, address, sessionSummaryPromptIds, customSessionSummaryPrompts, notes, createdAt, updatedAt)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO clients (id, fullName, preferredName, ndisNumber, address, sessionSummaryPromptIds, customSessionSummaryPrompts, shifts, notes, createdAt, updatedAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       client.id,
       client.fullName,
@@ -29,6 +29,7 @@ export async function createClient(
       client.address || null,
       client.sessionSummaryPromptIds || '[]',
       client.customSessionSummaryPrompts || '[]',
+      client.shifts || '[]',
       client.notes || null,
       client.createdAt,
       client.updatedAt,
@@ -82,7 +83,7 @@ export async function updateClient(
 
   await db.runAsync(
     `UPDATE clients 
-     SET fullName = ?, preferredName = ?, ndisNumber = ?, address = ?, sessionSummaryPromptIds = ?, customSessionSummaryPrompts = ?, notes = ?, updatedAt = ?
+     SET fullName = ?, preferredName = ?, ndisNumber = ?, address = ?, sessionSummaryPromptIds = ?, customSessionSummaryPrompts = ?, shifts = ?, notes = ?, updatedAt = ?
      WHERE id = ?`,
     [
       updated.fullName,
@@ -91,6 +92,7 @@ export async function updateClient(
       updated.address || null,
       updated.sessionSummaryPromptIds || '[]',
       updated.customSessionSummaryPrompts || '[]',
+      updated.shifts || '[]',
       updated.notes || null,
       updated.updatedAt,
       id,
