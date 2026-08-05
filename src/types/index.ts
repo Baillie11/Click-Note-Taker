@@ -81,7 +81,9 @@ export interface IncidentReport {
 
 // NDIS Support Categories
 export const SUPPORT_CATEGORIES = [
-  'Assistance with Daily Life',
+  'Community Access',
+  'Personal Care',
+  'Assist Daily Living',
   'Transport',
   'Consumables',
   'Assistance with Social & Community Participation',
