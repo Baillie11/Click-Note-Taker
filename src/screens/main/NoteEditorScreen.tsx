@@ -25,7 +25,7 @@ import {
   getNoteById, 
   getClientById 
 } from '../../database';
-import { CustomPromptResponse, Note, NoteStatus, Client, RootStackParamList, SessionEntry, SUPPORT_CATEGORIES } from '../../types';
+import { CustomPromptResponse, Note, NoteReminderChecklistItem, NoteStatus, Client, RootStackParamList, SessionEntry, SUPPORT_CATEGORIES } from '../../types';
 import { 
   convertToNDISProgressNote, 
   formatNDISProgressNoteAsText,
@@ -45,7 +45,14 @@ import {
 } from '../../utils/sessionEntries';
 import { COLORS, TYPOGRAPHY, SPACING, AUTOSAVE_INTERVAL } from '../../constants';
 import { getScheduledShiftEnd, parseClientShifts } from '../../utils/clientShifts';
-import { cancelNoteReminders, scheduleNoteReminders } from '../../utils/noteReminders';
+import { cancelNoteReminders, scheduleNoteReminders, scheduleShiftChecklistReminder } from '../../utils/noteReminders';
+import {
+  buildReminderChecklist,
+  parseCustomReminderItems,
+  parseReminderChecklist,
+  parseReminderItemIds,
+  serializeReminderChecklist,
+} from '../../utils/clientReminders';
 import {
   parseCustomPromptResponses,
   parseCustomPrompts,
@@ -91,6 +98,7 @@ export function NoteEditorScreen() {
   const [timeOut, setTimeOut] = useState<string | undefined>();
   const [noteStatus, setNoteStatus] = useState<NoteStatus>('incomplete');
   const [scheduledShiftEnd, setScheduledShiftEnd] = useState<string | undefined>();
+  const [reminderChecklist, setReminderChecklist] = useState<NoteReminderChecklistItem[]>([]);
   const [location, setLocation] = useState('');
   const [supportCategory, setSupportCategory] = useState('');
   const [goalsSupported, setGoalsSupported] = useState('');
@@ -154,6 +162,7 @@ export function NoteEditorScreen() {
     timeOut,
     noteStatus,
     scheduledShiftEnd,
+    reminderChecklist,
     location,
     supportCategory,
     goalsSupported,
@@ -188,6 +197,7 @@ export function NoteEditorScreen() {
           setTimeOut(noteData.timeOut);
           setNoteStatus(getStatusFromNote(noteData));
           setScheduledShiftEnd(noteData.scheduledShiftEnd);
+          setReminderChecklist(parseReminderChecklist(noteData.reminderChecklist));
           setLocation(noteData.location || '');
           setSupportCategory(noteData.supportCategory || '');
           setGoalsSupported(noteData.goalsSupported || '');
@@ -203,9 +213,14 @@ export function NoteEditorScreen() {
         // Create a new note immediately
         const noteTime = getCurrentISOTimestamp();
         const matchedShiftEnd = getScheduledShiftEnd(noteTime, parseClientShifts(clientData?.shifts));
+        const newReminderChecklist = buildReminderChecklist(
+          parseReminderItemIds(clientData?.reminderItemIds),
+          parseCustomReminderItems(clientData?.customReminderItems)
+        );
         const newNote = await createNote(clientId, {
           timeIn: noteTime,
           scheduledShiftEnd: matchedShiftEnd,
+          reminderChecklist: serializeReminderChecklist(newReminderChecklist),
           location: clientData?.address || userProfile.defaultLocation || undefined,
           workerName: userProfile.workerName || undefined,
           workerSignature: userProfile.workerSignature || userProfile.workerName || undefined,
@@ -215,12 +230,15 @@ export function NoteEditorScreen() {
         setTimeIn(newNote.timeIn);
         setNoteStatus(newNote.status);
         setScheduledShiftEnd(newNote.scheduledShiftEnd);
+        setReminderChecklist(newReminderChecklist);
         setLocation(newNote.location || '');
         setWorkerName(newNote.workerName || '');
         setWorkerSignature(newNote.workerSignature || '');
         if (newNote.scheduledShiftEnd) {
-          scheduleNoteReminders(newNote.id, newNote.scheduledShiftEnd)
-            .catch(error => console.error('Could not schedule note reminders:', error));
+          (async () => {
+            await scheduleNoteReminders(newNote.id, newNote.scheduledShiftEnd!);
+            await scheduleShiftChecklistReminder(newNote.id, newNote.scheduledShiftEnd!, newReminderChecklist.length);
+          })().catch(error => console.error('Could not schedule shift reminders:', error));
         }
       }
     } catch (error) {
@@ -246,6 +264,7 @@ export function NoteEditorScreen() {
         timeOut,
         status: noteStatus,
         scheduledShiftEnd,
+        reminderChecklist: serializeReminderChecklist(reminderChecklist),
         location,
         supportCategory,
         goalsSupported,
@@ -384,7 +403,11 @@ export function NoteEditorScreen() {
         const reminderAction = matchedShiftEnd
           ? scheduleNoteReminders(currentNoteId, matchedShiftEnd)
           : cancelNoteReminders(currentNoteId);
-        reminderAction.catch(error => console.error('Could not update note reminders:', error));
+        reminderAction
+          .then(() => matchedShiftEnd
+            ? scheduleShiftChecklistReminder(currentNoteId, matchedShiftEnd, reminderChecklist.length)
+            : undefined)
+          .catch(error => console.error('Could not update note reminders:', error));
       }
       setHasUnsavedChanges(true);
       setShowTimeInEditor(false);
@@ -418,7 +441,7 @@ export function NoteEditorScreen() {
   const handleFinishShift = () => {
     const selectedPrompts = parseSessionSummaryPromptIds(client?.sessionSummaryPromptIds);
     const customPrompts = parseCustomPrompts(client?.customSessionSummaryPrompts);
-    if (selectedPrompts.length === 0 && customPrompts.length === 0) {
+    if (selectedPrompts.length === 0 && customPrompts.length === 0 && reminderChecklist.length === 0) {
       handleCompleteWithReflection();
       return;
     }
@@ -445,6 +468,13 @@ export function NoteEditorScreen() {
       }
       return [...current, { id, question, response }];
     });
+    setHasUnsavedChanges(true);
+  };
+
+  const toggleReminderChecklistItem = (id: string) => {
+    setReminderChecklist(current => current.map(item =>
+      item.id === id ? { ...item, completed: !item.completed } : item
+    ));
     setHasUnsavedChanges(true);
   };
 
@@ -479,6 +509,7 @@ export function NoteEditorScreen() {
     timeOut,
     status: noteStatus,
     scheduledShiftEnd,
+    reminderChecklist: serializeReminderChecklist(reminderChecklist),
     location,
     supportCategory,
     goalsSupported,
@@ -990,6 +1021,27 @@ export function NoteEditorScreen() {
               Complete the prompts selected in this client's profile.
             </Text>
             <ScrollView keyboardShouldPersistTaps="handled">
+              {reminderChecklist.length > 0 && (
+                <View style={styles.reflectionChecklist}>
+                  <Text style={styles.reflectionChecklistTitle}>End-of-Shift Checklist</Text>
+                  {reminderChecklist.map(item => (
+                    <TouchableOpacity
+                      key={item.id}
+                      style={styles.reflectionChecklistItem}
+                      onPress={() => toggleReminderChecklistItem(item.id)}
+                      accessibilityRole="checkbox"
+                      accessibilityState={{ checked: item.completed }}
+                    >
+                      <View style={[styles.reflectionCheckbox, item.completed && styles.reflectionCheckboxSelected]}>
+                        {item.completed && <Text style={styles.reflectionCheckboxMark}>✓</Text>}
+                      </View>
+                      <Text style={[styles.reflectionChecklistText, item.completed && styles.reflectionChecklistTextDone]}>
+                        {item.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
               {selectedSessionSummaryPrompts.includes('supports') && (
               <View style={styles.field}>
                 <Text style={styles.fieldLabel}>What supports and activities were provided?</Text>
@@ -1616,6 +1668,51 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     marginBottom: SPACING.md,
     textAlign: 'center',
+  },
+  reflectionChecklist: {
+    marginBottom: SPACING.md,
+    paddingBottom: SPACING.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  reflectionChecklistTitle: {
+    fontSize: TYPOGRAPHY.fontSizeBase,
+    fontWeight: '700',
+    color: COLORS.text,
+    marginBottom: SPACING.sm,
+  },
+  reflectionChecklistItem: {
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: SPACING.xs,
+  },
+  reflectionCheckbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: COLORS.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: SPACING.sm,
+  },
+  reflectionCheckboxSelected: {
+    backgroundColor: COLORS.success,
+    borderColor: COLORS.success,
+  },
+  reflectionCheckboxMark: {
+    color: COLORS.surface,
+    fontWeight: '700',
+  },
+  reflectionChecklistText: {
+    flex: 1,
+    fontSize: TYPOGRAPHY.fontSizeBase,
+    color: COLORS.text,
+  },
+  reflectionChecklistTextDone: {
+    color: COLORS.textLight,
+    textDecorationLine: 'line-through',
   },
   categoryList: {
     maxHeight: 400,

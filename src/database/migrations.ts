@@ -111,6 +111,14 @@ const MIGRATIONS = [
       ALTER TABLE notes ADD COLUMN scheduledShiftEnd TEXT;
     `,
   },
+  {
+    version: 9,
+    up: `
+      ALTER TABLE clients ADD COLUMN reminderItemIds TEXT NOT NULL DEFAULT '[]';
+      ALTER TABLE clients ADD COLUMN customReminderItems TEXT NOT NULL DEFAULT '[]';
+      ALTER TABLE notes ADD COLUMN reminderChecklist TEXT NOT NULL DEFAULT '[]';
+    `,
+  },
 ];
 
 /**

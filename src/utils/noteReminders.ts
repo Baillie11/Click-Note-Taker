@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { getDatabase } from '../database';
+import { parseReminderChecklist } from './clientReminders';
 
 const CHANNEL_ID = 'unfinished-shift-notes';
 const MAX_REMINDERS = 60;
@@ -67,13 +68,39 @@ export async function scheduleNoteReminders(noteId: string, shiftEnd: string): P
     })));
 }
 
+export async function scheduleShiftChecklistReminder(
+  noteId: string,
+  shiftEnd: string,
+  itemCount: number
+): Promise<void> {
+  if (itemCount === 0 || !(await initializeNoteReminders())) return;
+  const date = new Date(shiftEnd);
+  if (date.getTime() <= Date.now()) return;
+
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: 'End-of-shift checklist',
+      body: `You have ${itemCount} reminder ${itemCount === 1 ? 'item' : 'items'} to review in Click Note Taker.`,
+      sound: 'default',
+      data: { noteId, reminderType: 'checklist' },
+    },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.DATE,
+      date,
+      channelId: CHANNEL_ID,
+    },
+  });
+}
+
 export async function reconcileNoteReminders(): Promise<void> {
   const db = await getDatabase();
-  const notes = await db.getAllAsync<{ id: string; scheduledShiftEnd: string }>(
-    `SELECT id, scheduledShiftEnd FROM notes
+  const notes = await db.getAllAsync<{ id: string; scheduledShiftEnd: string; reminderChecklist: string }>(
+    `SELECT id, scheduledShiftEnd, reminderChecklist FROM notes
      WHERE status != 'submitted' AND scheduledShiftEnd IS NOT NULL`
   );
   for (const note of notes) {
     await scheduleNoteReminders(note.id, note.scheduledShiftEnd);
+    const checklist = parseReminderChecklist(note.reminderChecklist);
+    await scheduleShiftChecklistReminder(note.id, note.scheduledShiftEnd, checklist.length);
   }
 }

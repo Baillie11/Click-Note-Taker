@@ -21,7 +21,7 @@ import {
   getNotesByClientId, 
   deleteNote 
 } from '../../database';
-import { Client, ClientShift, CustomSessionSummaryPrompt, Note, NoteStatus, RootStackParamList } from '../../types';
+import { Client, ClientReminderItem, ClientShift, CustomSessionSummaryPrompt, Note, NoteStatus, RootStackParamList } from '../../types';
 import { formatAustralianDateTime, getRelativeTime } from '../../utils/dateTime';
 import { parseSessionEntries } from '../../utils/sessionEntries';
 import {
@@ -34,6 +34,13 @@ import {
 } from '../../utils/sessionSummaryPrompts';
 import { COLORS, TYPOGRAPHY, SPACING } from '../../constants';
 import { WEEKDAYS, isValidShiftTime, normalizeShiftTime, parseClientShifts, serializeClientShifts } from '../../utils/clientShifts';
+import {
+  DEFAULT_CLIENT_REMINDERS,
+  parseCustomReminderItems,
+  parseReminderItemIds,
+  serializeReminderItemIds,
+  serializeReminderItems,
+} from '../../utils/clientReminders';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type ClientDetailRouteProp = RouteProp<RootStackParamList, 'ClientDetail'>;
@@ -111,6 +118,9 @@ export function ClientDetailScreen() {
   const [newShiftWeekday, setNewShiftWeekday] = useState(new Date().getDay());
   const [newShiftStart, setNewShiftStart] = useState('09:00');
   const [newShiftEnd, setNewShiftEnd] = useState('17:00');
+  const [editReminderItemIds, setEditReminderItemIds] = useState<string[]>([]);
+  const [editCustomReminderItems, setEditCustomReminderItems] = useState<ClientReminderItem[]>([]);
+  const [newCustomReminderItem, setNewCustomReminderItem] = useState('');
   const [editNotes, setEditNotes] = useState('');
 
   const loadData = useCallback(async () => {
@@ -125,6 +135,8 @@ export function ClientDetailScreen() {
         setEditSessionSummaryPromptIds(parseSessionSummaryPromptIds(clientData.sessionSummaryPromptIds));
         setEditCustomPrompts(parseCustomPrompts(clientData.customSessionSummaryPrompts));
         setEditShifts(parseClientShifts(clientData.shifts));
+        setEditReminderItemIds(parseReminderItemIds(clientData.reminderItemIds));
+        setEditCustomReminderItems(parseCustomReminderItems(clientData.customReminderItems));
         setEditNotes(clientData.notes || '');
       }
       const notesData = await getNotesByClientId(clientId);
@@ -157,6 +169,8 @@ export function ClientDetailScreen() {
         sessionSummaryPromptIds: serializeSessionSummaryPromptIds(editSessionSummaryPromptIds),
         customSessionSummaryPrompts: serializeCustomPrompts(editCustomPrompts),
         shifts: serializeClientShifts(editShifts),
+        reminderItemIds: serializeReminderItemIds(editReminderItemIds),
+        customReminderItems: serializeReminderItems(editCustomReminderItems),
         notes: editNotes.trim() || undefined,
       });
       setShowEditModal(false);
@@ -191,6 +205,16 @@ export function ClientDetailScreen() {
         endTime: normalizeShiftTime(newShiftEnd),
       },
     ]);
+  };
+
+  const handleAddCustomReminder = () => {
+    const label = newCustomReminderItem.trim();
+    if (!label) return;
+    setEditCustomReminderItems(current => [
+      ...current,
+      { id: `reminder-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, label },
+    ]);
+    setNewCustomReminderItem('');
   };
 
   const handleDeleteClient = () => {
@@ -495,6 +519,66 @@ export function ClientDetailScreen() {
               </View>
               <TouchableOpacity style={styles.addPromptButton} onPress={handleAddShift}>
                 <Text style={styles.addPromptButtonText}>Add Shift</Text>
+              </TouchableOpacity>
+
+              <Text style={styles.promptSectionTitle}>End-of-Shift Reminders</Text>
+              <Text style={styles.promptSectionHelper}>
+                Selected items appear in the Finish Shift checklist and trigger a shift-finish notification.
+              </Text>
+              {DEFAULT_CLIENT_REMINDERS.map(item => {
+                const isSelected = editReminderItemIds.includes(item.id);
+                return (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={styles.promptOption}
+                    onPress={() => setEditReminderItemIds(current =>
+                      isSelected ? current.filter(id => id !== item.id) : [...current, item.id]
+                    )}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: isSelected }}
+                  >
+                    <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>
+                      {isSelected && <Text style={styles.checkboxMark}>✓</Text>}
+                    </View>
+                    <Text style={styles.promptOptionText}>{item.label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+              <Text style={styles.customPromptTitle}>Custom Reminder Items</Text>
+              {editCustomReminderItems.map(item => (
+                <View key={item.id} style={styles.customPromptRow}>
+                  <TextInput
+                    style={[styles.modalInput, styles.customPromptInput]}
+                    value={item.label}
+                    onChangeText={label => setEditCustomReminderItems(current =>
+                      current.map(existing => existing.id === item.id ? { ...existing, label } : existing)
+                    )}
+                    placeholder="Reminder item"
+                    placeholderTextColor={COLORS.textMuted}
+                    multiline
+                  />
+                  <TouchableOpacity
+                    style={styles.removePromptButton}
+                    onPress={() => setEditCustomReminderItems(current => current.filter(existing => existing.id !== item.id))}
+                  >
+                    <Text style={styles.removePromptButtonText}>Remove</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+              <TextInput
+                style={styles.modalInput}
+                value={newCustomReminderItem}
+                onChangeText={setNewCustomReminderItem}
+                placeholder="Add a custom reminder"
+                placeholderTextColor={COLORS.textMuted}
+                multiline
+              />
+              <TouchableOpacity
+                style={[styles.addPromptButton, !newCustomReminderItem.trim() && styles.addPromptButtonDisabled]}
+                onPress={handleAddCustomReminder}
+                disabled={!newCustomReminderItem.trim()}
+              >
+                <Text style={styles.addPromptButtonText}>Add Reminder</Text>
               </TouchableOpacity>
 
               <Text style={styles.promptSectionTitle}>Session Summary Prompts</Text>

@@ -8,6 +8,8 @@ export interface Client {
   sessionSummaryPromptIds?: string;
   customSessionSummaryPrompts?: string;
   shifts?: string;
+  reminderItemIds?: string;
+  customReminderItems?: string;
   notes?: string;
   createdAt: string;
   updatedAt: string;
@@ -37,6 +39,15 @@ export interface ClientShift {
   endTime: string;
 }
 
+export interface ClientReminderItem {
+  id: string;
+  label: string;
+}
+
+export interface NoteReminderChecklistItem extends ClientReminderItem {
+  completed: boolean;
+}
+
 // Note entity
 export interface Note {
   id: string;
@@ -58,6 +69,7 @@ export interface Note {
   nextSteps?: string;
   customPromptResponses?: string;
   scheduledShiftEnd?: string;
+  reminderChecklist?: string;
   workerName?: string;
   workerSignature?: string;
   createdAt: string;

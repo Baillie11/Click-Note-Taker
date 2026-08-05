@@ -33,6 +33,7 @@ export async function createNote(
     nextSteps: data?.nextSteps,
     customPromptResponses: data?.customPromptResponses || '[]',
     scheduledShiftEnd: data?.scheduledShiftEnd,
+    reminderChecklist: data?.reminderChecklist || '[]',
     workerName: data?.workerName,
     workerSignature: data?.workerSignature,
     createdAt: now,
@@ -44,8 +45,8 @@ export async function createNote(
       id, clientId, rawContent, sessionEntries, audioUri, transcript, timeIn, timeOut,
       location, supportCategory, goalsSupported, activitiesCompleted,
       observations, risksIncidents, medicationAssistance, nextSteps,
-      workerName, workerSignature, customPromptResponses, scheduledShiftEnd, status, createdAt, updatedAt
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      workerName, workerSignature, customPromptResponses, scheduledShiftEnd, reminderChecklist, status, createdAt, updatedAt
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       note.id,
       note.clientId,
@@ -67,6 +68,7 @@ export async function createNote(
       note.workerSignature || null,
       note.customPromptResponses || '[]',
       note.scheduledShiftEnd || null,
+      note.reminderChecklist || '[]',
       note.status,
       note.createdAt,
       note.updatedAt,
@@ -124,7 +126,7 @@ export async function updateNote(
       rawContent = ?, sessionEntries = ?, audioUri = ?, transcript = ?, timeIn = ?, timeOut = ?,
       location = ?, supportCategory = ?, goalsSupported = ?, activitiesCompleted = ?,
       observations = ?, risksIncidents = ?, medicationAssistance = ?, nextSteps = ?,
-      workerName = ?, workerSignature = ?, customPromptResponses = ?, scheduledShiftEnd = ?, status = ?, updatedAt = ?
+      workerName = ?, workerSignature = ?, customPromptResponses = ?, scheduledShiftEnd = ?, reminderChecklist = ?, status = ?, updatedAt = ?
      WHERE id = ?`,
     [
       updated.rawContent,
@@ -145,6 +147,7 @@ export async function updateNote(
       updated.workerSignature || null,
       updated.customPromptResponses || '[]',
       updated.scheduledShiftEnd || null,
+      updated.reminderChecklist || '[]',
       updated.status,
       updated.updatedAt,
       id,
