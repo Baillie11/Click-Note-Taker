@@ -275,7 +275,7 @@ const styles = StyleSheet.create({
   },
   list: {
     padding: SPACING.md,
-    paddingBottom: 100,
+    paddingBottom: 140,
   },
   clientCard: {
     flexDirection: 'row',
@@ -351,7 +351,7 @@ const styles = StyleSheet.create({
   fab: {
     position: 'absolute',
     right: SPACING.lg,
-    bottom: 80,
+    bottom: 112,
     width: 56,
     height: 56,
     borderRadius: 28,
