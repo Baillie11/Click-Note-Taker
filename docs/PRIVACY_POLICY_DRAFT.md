@@ -4,15 +4,15 @@ This document is a product draft and must be reviewed, completed, and published 
 
 ## Information stored by the app
 
-Click Note Taker can store worker profile details, client profile details, support-session notes, timestamps, report fields, and voice recordings entered by the user.
+Click Note Taker can store worker profile details, client profile details, support-session notes, timestamps, report fields, voice recordings, and editable speech-to-text transcripts entered by the user.
 
 ## Where information is stored
 
-App records are stored locally on the user's device. Click Note Taker does not currently provide a cloud account or upload app records to a Click Note Taker server.
+App records are stored locally on the user's device. Click Note Taker does not currently provide a cloud account or upload app records to a Click Note Taker server. Speech-to-text is configured to require the device's offline recognition service; the app does not fall back to cloud transcription when offline recognition is unavailable.
 
 ## Device permissions
 
-The app requests microphone access only when voice recording is used. It can use device biometrics to unlock the app when the user enables that option.
+The app requests microphone access only when voice recording and speech-to-text are used. It can use device biometrics to unlock the app when the user enables that option.
 
 ## Sharing information
 

@@ -7,8 +7,8 @@ A beta React Native (Expo) app designed for NDIS support workers in Australia. C
 ## Features
 
 ### Core Features
-- **Note Taking**: Type or record voice notes with optional speech-to-text
-- **Voice Recording**: Built-in audio recording using expo-av
+- **Note Taking**: Type notes or record voice notes with editable speech-to-text
+- **Private Transcription**: Australian English speech recognition runs on-device without a cloud fallback
 - **Auto-save**: Notes automatically save every 5 seconds
 - **Auto Timestamp**: Time In auto-assigned on note creation, editable Time In/Out
 - **Australian Date Format**: All dates displayed in DD/MM/YYYY format
@@ -74,7 +74,7 @@ A beta React Native (Expo) app designed for NDIS support workers in Australia. C
 
 #### iOS
 - Face ID permission is configured in app.json
-- Microphone permission for voice recording is configured
+- Microphone permission for voice recording and on-device transcription is configured
 
 #### Android
 - Biometric and microphone permissions are configured
@@ -132,7 +132,8 @@ ClickNoteTaker/
 - **expo-sqlite** - Local database storage
 - **expo-secure-store** - Secure PIN storage
 - **expo-local-authentication** - Biometric authentication
-- **expo-av** - Audio recording
+- **expo-audio** - Local audio playback
+- **expo-speech-recognition** - On-device voice recording and speech-to-text
 - **expo-clipboard** - Copy to clipboard
 - **@react-navigation/native** - Navigation
 
@@ -179,7 +180,7 @@ The app includes standard NDIS support categories:
 ## Permissions
 
 The app requests the following permissions:
-- **Microphone**: For voice recording
+- **Microphone**: For local voice recording and on-device speech-to-text
 - **Face ID / Biometrics**: For optional biometric unlock
 
 All permissions are handled gracefully—the app will not crash if permissions are denied.

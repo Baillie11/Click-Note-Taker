@@ -301,6 +301,11 @@ export function NoteEditorScreen() {
     setHasUnsavedChanges(true);
   };
 
+  const handleRecordingDeleted = () => {
+    setAudioUri(undefined);
+    setHasUnsavedChanges(true);
+  };
+
   const handleTranscriptChange = (text: string) => {
     setTranscript(text);
     setHasUnsavedChanges(true);
@@ -872,14 +877,23 @@ export function NoteEditorScreen() {
 
           <VoiceRecorder
             onRecordingComplete={handleRecordingComplete}
+            onRecordingDeleted={handleRecordingDeleted}
             onTranscriptChange={handleTranscriptChange}
             existingAudioUri={audioUri}
+            existingTranscript={transcript}
           />
 
           {transcript ? (
             <View style={styles.transcriptContainer}>
               <Text style={styles.fieldLabel}>Transcript</Text>
-              <Text style={styles.transcriptText}>{transcript}</Text>
+              <TextInput
+                style={[styles.fieldInput, styles.transcriptInput]}
+                value={transcript}
+                onChangeText={handleTranscriptChange}
+                multiline
+                textAlignVertical="top"
+                accessibilityLabel="Editable voice transcript"
+              />
             </View>
           ) : null}
 
@@ -1599,9 +1613,8 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginBottom: SPACING.md,
   },
-  transcriptText: {
-    fontSize: TYPOGRAPHY.fontSizeBase,
-    color: COLORS.text,
+  transcriptInput: {
+    minHeight: 120,
     lineHeight: 22,
   },
   convertButton: {

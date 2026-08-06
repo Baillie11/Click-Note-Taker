@@ -1,119 +1,235 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
-import { AudioModule, RecordingPresets, setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus, useAudioRecorder, useAudioRecorderState } from 'expo-audio';
-import { COLORS, TYPOGRAPHY, SPACING } from '../constants';
+import React, { useEffect, useRef, useState } from 'react';
+import { Alert, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
+import { File, Paths } from 'expo-file-system';
+import {
+  ExpoSpeechRecognitionModule,
+  useSpeechRecognitionEvent,
+} from 'expo-speech-recognition';
+import { COLORS, SPACING, TYPOGRAPHY } from '../constants';
+
+const TRANSCRIPTION_LOCALE = 'en-AU';
+const ANDROID_ON_DEVICE_SERVICE = 'com.google.android.as';
 
 interface VoiceRecorderProps {
   onRecordingComplete: (uri: string) => void;
+  onRecordingDeleted?: () => void;
   onTranscriptChange?: (transcript: string) => void;
   existingAudioUri?: string;
+  existingTranscript?: string;
+}
+
+function deleteLocalRecording(uri?: string) {
+  if (!uri) return;
+
+  try {
+    const recording = new File(uri);
+    if (recording.exists) recording.delete();
+  } catch (error) {
+    console.warn('Could not delete voice recording:', error);
+  }
+}
+
+function getRecognitionErrorMessage(code: string): string {
+  switch (code) {
+    case 'no-speech':
+    case 'speech-timeout':
+      return 'No speech was detected. Please try again and speak clearly.';
+    case 'not-allowed':
+      return 'Microphone access is required. Enable it in your device settings and try again.';
+    case 'language-not-supported':
+    case 'service-not-allowed':
+      return 'Australian English offline speech recognition is not ready on this device.';
+    case 'audio-capture':
+      return 'The device could not capture audio for transcription.';
+    default:
+      return 'Speech recognition stopped unexpectedly. Please try again.';
+  }
 }
 
 export function VoiceRecorder({
   onRecordingComplete,
+  onRecordingDeleted,
   onTranscriptChange,
   existingAudioUri,
+  existingTranscript,
 }: VoiceRecorderProps) {
-  const [recordingDuration, setRecordingDuration] = useState(0);
   const [hasRecording, setHasRecording] = useState(!!existingAudioUri);
   const [currentUri, setCurrentUri] = useState<string | undefined>(existingAudioUri);
-  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
-  const recorder = useAudioRecorder({ ...RecordingPresets.HIGH_QUALITY, directory: 'document' });
-  const recorderState = useAudioRecorderState(recorder, 500);
+  const [isRecognizing, setIsRecognizing] = useState(false);
+  const [recognitionMessage, setRecognitionMessage] = useState('');
+  const finalSegmentsRef = useRef<string[]>([]);
+  const previousRecordingRef = useRef<string | undefined>(existingAudioUri);
   const player = useAudioPlayer(currentUri ?? null);
   const playerStatus = useAudioPlayerStatus(player);
 
   useEffect(() => {
-    checkPermissions();
+    return () => {
+      ExpoSpeechRecognitionModule.abort();
+    };
   }, []);
 
-  useEffect(() => {
-    let interval: ReturnType<typeof setInterval>;
-    if (recorderState.isRecording) {
-      interval = setInterval(() => {
-        setRecordingDuration(prev => prev + 1);
-      }, 1000);
-    }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [recorderState.isRecording]);
+  useSpeechRecognitionEvent('start', () => {
+    setIsRecognizing(true);
+    setRecognitionMessage('Listening and transcribing on this device...');
+  });
 
-  const checkPermissions = async () => {
+  useSpeechRecognitionEvent('result', (event) => {
+    const nextText = event.results[0]?.transcript.trim();
+    if (!nextText) return;
+
+    if (event.isFinal) {
+      const lastSegment = finalSegmentsRef.current.at(-1);
+      if (nextText !== lastSegment) finalSegmentsRef.current.push(nextText);
+    }
+
+    const completed = finalSegmentsRef.current.join(' ').trim();
+    const transcript = event.isFinal
+      ? completed
+      : [completed, nextText].filter(Boolean).join(' ').trim();
+    onTranscriptChange?.(transcript);
+  });
+
+  useSpeechRecognitionEvent('audioend', (event) => {
+    if (!event.uri) return;
+
+    const oldUri = previousRecordingRef.current;
+    setCurrentUri(event.uri);
+    setHasRecording(true);
+    previousRecordingRef.current = event.uri;
+    onRecordingComplete(event.uri);
+    if (oldUri && oldUri !== event.uri) deleteLocalRecording(oldUri);
+  });
+
+  useSpeechRecognitionEvent('error', (event) => {
+    if (event.error === 'aborted') return;
+    setRecognitionMessage('Transcription was not completed.');
+    Alert.alert('Transcription Unavailable', getRecognitionErrorMessage(event.error));
+  });
+
+  useSpeechRecognitionEvent('end', () => {
+    setIsRecognizing(false);
+    setRecognitionMessage('Audio and transcript are stored only on this device.');
+  });
+
+  const downloadOfflineModel = async () => {
     try {
-      const response = await AudioModule.getRecordingPermissionsAsync();
-      setHasPermission(response.granted);
+      const result = await ExpoSpeechRecognitionModule.androidTriggerOfflineModelDownload({
+        locale: TRANSCRIPTION_LOCALE,
+      });
+      const message = result.status === 'download_scheduled'
+        ? 'The Australian English model download has been scheduled. Try recording again after it finishes.'
+        : 'Complete the Australian English download, then tap Start Recording again.';
+      Alert.alert('Offline Model', message);
     } catch (error) {
-      console.error('Error checking permissions:', error);
+      console.error('Could not start offline model download:', error);
+      Alert.alert(
+        'Offline Model Unavailable',
+        'Install Australian English for on-device speech recognition in your phone settings, then try again.'
+      );
     }
   };
 
-  const requestPermissions = async (): Promise<boolean> => {
+  const beginOnDeviceRecognition = async () => {
     try {
-      const response = await AudioModule.requestRecordingPermissionsAsync();
-      setHasPermission(response.granted);
-      return response.granted;
-    } catch (error) {
-      console.error('Error requesting permissions:', error);
-      return false;
-    }
-  };
+      if (!ExpoSpeechRecognitionModule.isRecognitionAvailable()) {
+        Alert.alert('Speech Recognition Unavailable', 'Speech recognition is not enabled on this device.');
+        return;
+      }
+      if (!ExpoSpeechRecognitionModule.supportsOnDeviceRecognition()) {
+        Alert.alert(
+          'Private Transcription Unavailable',
+          'This device does not support on-device speech recognition. Audio will not be sent to a cloud service.'
+        );
+        return;
+      }
+      if (!ExpoSpeechRecognitionModule.supportsRecording()) {
+        Alert.alert(
+          'Recording Unavailable',
+          'This device cannot save audio while performing protected on-device transcription.'
+        );
+        return;
+      }
 
-  const startRecording = async () => {
-    try {
-      if (!hasPermission) {
-        const granted = await requestPermissions();
-        if (!granted) {
+      const permission = await ExpoSpeechRecognitionModule.requestMicrophonePermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert(
+          'Permission Required',
+          'Microphone access is required to record and transcribe a voice note.'
+        );
+        return;
+      }
+
+      if (Platform.OS === 'android') {
+        const locales = await ExpoSpeechRecognitionModule.getSupportedLocales({
+          androidRecognitionServicePackage: ANDROID_ON_DEVICE_SERVICE,
+        });
+        const hasAustralianEnglish = locales.installedLocales.some(
+          locale => locale.toLowerCase() === TRANSCRIPTION_LOCALE.toLowerCase()
+        );
+        if (!hasAustralianEnglish) {
           Alert.alert(
-            'Permission Required',
-            'Microphone permission is required to record voice notes. Please enable it in your device settings.',
-            [{ text: 'OK' }]
+            'Offline Language Required',
+            'Australian English must be downloaded before private speech-to-text can be used.',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Download', onPress: downloadOfflineModel },
+            ]
           );
           return;
         }
       }
 
-      await setAudioModeAsync({
-        allowsRecording: true,
-        playsInSilentMode: true,
+      finalSegmentsRef.current = [];
+      onTranscriptChange?.('');
+      setRecognitionMessage('Starting private transcription...');
+      ExpoSpeechRecognitionModule.start({
+        lang: TRANSCRIPTION_LOCALE,
+        interimResults: true,
+        maxAlternatives: 1,
+        continuous: true,
+        requiresOnDeviceRecognition: true,
+        addsPunctuation: true,
+        androidRecognitionServicePackage:
+          Platform.OS === 'android' ? ANDROID_ON_DEVICE_SERVICE : undefined,
+        recordingOptions: {
+          persist: true,
+          outputDirectory: Paths.document.uri,
+          outputFileName: `voice-note-${Date.now()}.wav`,
+        },
       });
-      await recorder.prepareToRecordAsync();
-      recorder.record();
-      setRecordingDuration(0);
     } catch (error) {
-      console.error('Failed to start recording:', error);
-      Alert.alert('Error', 'Failed to start recording. Please try again.');
+      console.error('Failed to start private transcription:', error);
+      Alert.alert(
+        'Transcription Unavailable',
+        'Private speech-to-text could not start. Check that Australian English offline recognition is installed.'
+      );
     }
   };
 
-  const stopRecording = async () => {
-    try {
-      await recorder.stop();
-      await setAudioModeAsync({
-        allowsRecording: false,
-      });
-      const uri = recorder.uri;
-
-      if (uri) {
-        setCurrentUri(uri);
-        setHasRecording(true);
-        onRecordingComplete(uri);
-        
-        // Note: Speech-to-text would be implemented here with a pluggable provider
-        // For now, we just save the audio URI
-        if (onTranscriptChange) {
-          onTranscriptChange('[Voice recording saved - transcription available with speech provider]');
-        }
-      }
-    } catch (error) {
-      console.error('Failed to stop recording:', error);
-      Alert.alert('Error', 'Failed to save recording. Please try again.');
+  const startRecording = () => {
+    if (!hasRecording && !existingTranscript?.trim()) {
+      void beginOnDeviceRecognition();
+      return;
     }
+
+    Alert.alert(
+      'Replace Voice Note?',
+      'Re-recording will replace the current audio and transcript.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Replace', style: 'destructive', onPress: () => void beginOnDeviceRecognition() },
+      ]
+    );
+  };
+
+  const stopRecording = () => {
+    setRecognitionMessage('Finishing the transcript...');
+    ExpoSpeechRecognitionModule.stop();
   };
 
   const playRecording = async () => {
     if (!currentUri) return;
-
     try {
       player.replace(currentUri);
       await player.seekTo(0);
@@ -130,92 +246,69 @@ export function VoiceRecorder({
   };
 
   const deleteRecording = () => {
-    Alert.alert(
-      'Delete Recording',
-      'Are you sure you want to delete this voice recording?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => {
-            setCurrentUri(undefined);
-            setHasRecording(false);
-            if (onTranscriptChange) {
-              onTranscriptChange('');
-            }
-          },
+    Alert.alert('Delete Voice Recording', 'Delete the audio and its transcript from this note?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => {
+          deleteLocalRecording(currentUri);
+          setCurrentUri(undefined);
+          setHasRecording(false);
+          previousRecordingRef.current = undefined;
+          onRecordingDeleted?.();
+          onTranscriptChange?.('');
+          setRecognitionMessage('');
         },
-      ]
-    );
-  };
-
-  const formatDuration = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+      },
+    ]);
   };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>Voice Recording</Text>
-      
-      <View style={styles.controls}>
-        {!recorderState.isRecording && !hasRecording && (
-          <TouchableOpacity
-            style={[styles.button, styles.recordButton]}
-            onPress={startRecording}
-          >
-            <Text style={styles.buttonText}>🎤 Start Recording</Text>
-          </TouchableOpacity>
-        )}
+      <Text style={styles.label}>Voice Recording and Speech-to-Text</Text>
+      <Text style={styles.privacyText}>
+        Australian English transcription runs on this device. Audio is not uploaded by Click Note Taker.
+      </Text>
 
-        {recorderState.isRecording && (
+      <View style={styles.controls}>
+        {!isRecognizing && !hasRecording ? (
+          <TouchableOpacity style={[styles.button, styles.recordButton]} onPress={startRecording}>
+            <Text style={styles.buttonText}>Start Recording</Text>
+          </TouchableOpacity>
+        ) : null}
+
+        {isRecognizing ? (
           <View style={styles.recordingContainer}>
             <View style={styles.recordingIndicator}>
               <View style={styles.recordingDot} />
-              <Text style={styles.recordingText}>Recording: {formatDuration(recordingDuration)}</Text>
+              <Text style={styles.recordingText}>Recording and transcribing</Text>
             </View>
-            <TouchableOpacity
-              style={[styles.button, styles.stopButton]}
-              onPress={stopRecording}
-            >
-              <Text style={styles.buttonText}>⏹ Stop</Text>
+            <TouchableOpacity style={[styles.button, styles.stopButton]} onPress={stopRecording}>
+              <Text style={styles.buttonText}>Stop</Text>
             </TouchableOpacity>
           </View>
-        )}
+        ) : null}
 
-        {hasRecording && !recorderState.isRecording && (
+        {hasRecording && !isRecognizing ? (
           <View style={styles.playbackContainer}>
             <TouchableOpacity
               style={[styles.button, styles.playButton]}
               onPress={playerStatus.playing ? stopPlayback : playRecording}
             >
-              <Text style={styles.buttonText}>
-                {playerStatus.playing ? 'Stop' : 'Play'}
-              </Text>
+              <Text style={styles.buttonText}>{playerStatus.playing ? 'Stop' : 'Play'}</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.button, styles.recordButton]}
-              onPress={startRecording}
-            >
-              <Text style={styles.buttonText}>🎤 Re-record</Text>
+            <TouchableOpacity style={[styles.button, styles.recordButton]} onPress={startRecording}>
+              <Text style={styles.buttonText}>Re-record</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.button, styles.deleteButton]}
-              onPress={deleteRecording}
-            >
-              <Text style={styles.buttonText}>🗑 Delete</Text>
+            <TouchableOpacity style={[styles.button, styles.deleteButton]} onPress={deleteRecording}>
+              <Text style={styles.buttonText}>Delete</Text>
             </TouchableOpacity>
           </View>
-        )}
+        ) : null}
       </View>
 
-      {hasPermission === false && (
-        <Text style={styles.permissionText}>
-          Microphone permission required for voice recording
-        </Text>
-      )}
+      {recognitionMessage ? <Text style={styles.statusText}>{recognitionMessage}</Text> : null}
     </View>
   );
 }
@@ -233,37 +326,20 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSizeBase,
     fontWeight: '600',
     color: COLORS.text,
-    marginBottom: SPACING.sm,
+    marginBottom: SPACING.xs,
   },
-  controls: {
-    flexDirection: 'column',
-    gap: SPACING.sm,
+  privacyText: {
+    color: COLORS.textLight,
+    fontSize: TYPOGRAPHY.fontSizeSmall,
+    lineHeight: 18,
+    marginBottom: SPACING.md,
   },
-  recordingContainer: {
-    alignItems: 'center',
-    gap: SPACING.sm,
-  },
-  recordingIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-  },
-  recordingDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: COLORS.error,
-  },
-  recordingText: {
-    fontSize: TYPOGRAPHY.fontSizeMedium,
-    color: COLORS.error,
-    fontWeight: '600',
-  },
-  playbackContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: SPACING.sm,
-  },
+  controls: { gap: SPACING.sm },
+  recordingContainer: { alignItems: 'center', gap: SPACING.sm },
+  recordingIndicator: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
+  recordingDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: COLORS.error },
+  recordingText: { fontSize: TYPOGRAPHY.fontSizeBase, color: COLORS.error, fontWeight: '600' },
+  playbackContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm },
   button: {
     paddingVertical: SPACING.sm,
     paddingHorizontal: SPACING.md,
@@ -271,26 +347,14 @@ const styles = StyleSheet.create({
     minWidth: 100,
     alignItems: 'center',
   },
-  buttonText: {
-    fontSize: TYPOGRAPHY.fontSizeBase,
-    fontWeight: '600',
-    color: COLORS.surface,
-  },
-  recordButton: {
-    backgroundColor: COLORS.primary,
-  },
-  stopButton: {
-    backgroundColor: COLORS.error,
-  },
-  playButton: {
-    backgroundColor: COLORS.secondary,
-  },
-  deleteButton: {
-    backgroundColor: COLORS.textLight,
-  },
-  permissionText: {
+  buttonText: { fontSize: TYPOGRAPHY.fontSizeBase, fontWeight: '600', color: COLORS.surface },
+  recordButton: { backgroundColor: COLORS.primary },
+  stopButton: { backgroundColor: COLORS.error },
+  playButton: { backgroundColor: COLORS.secondary },
+  deleteButton: { backgroundColor: COLORS.textLight },
+  statusText: {
+    color: COLORS.textLight,
     fontSize: TYPOGRAPHY.fontSizeSmall,
-    color: COLORS.warning,
     marginTop: SPACING.sm,
     textAlign: 'center',
   },

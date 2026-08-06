@@ -16,14 +16,14 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.clickecommerce.clicknotetaker",
-      "buildNumber": "8",
+      "buildNumber": "9",
       "infoPlist": {
         "NSMicrophoneUsageDescription": "This app needs access to your microphone to record voice notes.",
         "NSFaceIDUsageDescription": "This app uses Face ID to securely unlock the app."
       }
     },
     "android": {
-      "versionCode": 8,
+      "versionCode": 9,
       "allowBackup": false,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
@@ -59,6 +59,18 @@
           "microphonePermission": "Allow Click Note Taker to record voice notes.",
           "enableBackgroundPlayback": false,
           "enableBackgroundRecording": false
+        }
+      ],
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Allow Click Note Taker to record and privately transcribe voice notes on this device.",
+          "speechRecognitionPermission": "Allow Click Note Taker to transcribe voice notes on this device.",
+          "androidSpeechServicePackages": [
+            "com.google.android.as",
+            "com.google.android.tts",
+            "com.google.android.googlequicksearchbox"
+          ]
         }
       ],
       "expo-asset",
