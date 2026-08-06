@@ -14,9 +14,8 @@ const ANDROID_ON_DEVICE_SERVICE = 'com.google.android.as';
 interface VoiceRecorderProps {
   onRecordingComplete: (uri: string) => void;
   onRecordingDeleted?: () => void;
-  onTranscriptChange?: (transcript: string) => void;
+  onTranscriptComplete?: (transcript: string) => void;
   existingAudioUri?: string;
-  existingTranscript?: string;
 }
 
 function deleteLocalRecording(uri?: string) {
@@ -50,15 +49,16 @@ function getRecognitionErrorMessage(code: string): string {
 export function VoiceRecorder({
   onRecordingComplete,
   onRecordingDeleted,
-  onTranscriptChange,
+  onTranscriptComplete,
   existingAudioUri,
-  existingTranscript,
 }: VoiceRecorderProps) {
   const [hasRecording, setHasRecording] = useState(!!existingAudioUri);
   const [currentUri, setCurrentUri] = useState<string | undefined>(existingAudioUri);
   const [isRecognizing, setIsRecognizing] = useState(false);
   const [recognitionMessage, setRecognitionMessage] = useState('');
   const finalSegmentsRef = useRef<string[]>([]);
+  const latestTranscriptRef = useRef('');
+  const transcriptDeliveredRef = useRef(false);
   const previousRecordingRef = useRef<string | undefined>(existingAudioUri);
   const player = useAudioPlayer(currentUri ?? null);
   const playerStatus = useAudioPlayerStatus(player);
@@ -87,7 +87,7 @@ export function VoiceRecorder({
     const transcript = event.isFinal
       ? completed
       : [completed, nextText].filter(Boolean).join(' ').trim();
-    onTranscriptChange?.(transcript);
+    latestTranscriptRef.current = transcript;
   });
 
   useSpeechRecognitionEvent('audioend', (event) => {
@@ -109,7 +109,14 @@ export function VoiceRecorder({
 
   useSpeechRecognitionEvent('end', () => {
     setIsRecognizing(false);
-    setRecognitionMessage('Audio and transcript are stored only on this device.');
+    const completedTranscript = latestTranscriptRef.current.trim();
+    if (completedTranscript && !transcriptDeliveredRef.current) {
+      transcriptDeliveredRef.current = true;
+      onTranscriptComplete?.(completedTranscript);
+      setRecognitionMessage('Added to Session Notes. Audio is stored only on this device.');
+    } else {
+      setRecognitionMessage('Audio is stored only on this device.');
+    }
   });
 
   const downloadOfflineModel = async () => {
@@ -181,7 +188,8 @@ export function VoiceRecorder({
       }
 
       finalSegmentsRef.current = [];
-      onTranscriptChange?.('');
+      latestTranscriptRef.current = '';
+      transcriptDeliveredRef.current = false;
       setRecognitionMessage('Starting private transcription...');
       ExpoSpeechRecognitionModule.start({
         lang: TRANSCRIPTION_LOCALE,
@@ -208,14 +216,14 @@ export function VoiceRecorder({
   };
 
   const startRecording = () => {
-    if (!hasRecording && !existingTranscript?.trim()) {
+    if (!hasRecording) {
       void beginOnDeviceRecognition();
       return;
     }
 
     Alert.alert(
-      'Replace Voice Note?',
-      'Re-recording will replace the current audio and transcript.',
+      'Record Again?',
+      'This replaces the saved audio. Notes already added to Session Notes will remain.',
       [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Replace', style: 'destructive', onPress: () => void beginOnDeviceRecognition() },
@@ -246,27 +254,30 @@ export function VoiceRecorder({
   };
 
   const deleteRecording = () => {
-    Alert.alert('Delete Voice Recording', 'Delete the audio and its transcript from this note?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: () => {
-          deleteLocalRecording(currentUri);
-          setCurrentUri(undefined);
-          setHasRecording(false);
-          previousRecordingRef.current = undefined;
-          onRecordingDeleted?.();
-          onTranscriptChange?.('');
-          setRecognitionMessage('');
+    Alert.alert(
+      'Delete Voice Recording',
+      'Delete the saved audio? Any text already added to Session Notes will remain.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            deleteLocalRecording(currentUri);
+            setCurrentUri(undefined);
+            setHasRecording(false);
+            previousRecordingRef.current = undefined;
+            onRecordingDeleted?.();
+            setRecognitionMessage('');
+          },
         },
-      },
-    ]);
+      ]
+    );
   };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>Voice Recording and Speech-to-Text</Text>
+      <Text style={styles.label}>Voice Session Note</Text>
       <Text style={styles.privacyText}>
         Australian English transcription runs on this device. Audio is not uploaded by Click Note Taker.
       </Text>
@@ -299,7 +310,7 @@ export function VoiceRecorder({
               <Text style={styles.buttonText}>{playerStatus.playing ? 'Stop' : 'Play'}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[styles.button, styles.recordButton]} onPress={startRecording}>
-              <Text style={styles.buttonText}>Re-record</Text>
+              <Text style={styles.buttonText}>Record Again</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[styles.button, styles.deleteButton]} onPress={deleteRecording}>
               <Text style={styles.buttonText}>Delete</Text>

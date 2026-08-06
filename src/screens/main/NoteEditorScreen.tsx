@@ -306,8 +306,19 @@ export function NoteEditorScreen() {
     setHasUnsavedChanges(true);
   };
 
-  const handleTranscriptChange = (text: string) => {
-    setTranscript(text);
+  const handleTranscriptComplete = (text: string) => {
+    const completedText = text.trim();
+    if (!completedText) return;
+
+    setSessionEntries((entries) => [
+      ...entries,
+      {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        timestamp: getMinuteTimestampForDate(timeIn),
+        text: completedText,
+      },
+    ]);
+    setTranscript('');
     setHasUnsavedChanges(true);
   };
 
@@ -813,8 +824,8 @@ export function NoteEditorScreen() {
             />
           </View>
 
-          <View style={styles.field}>
-            <Text style={styles.fieldLabel}>Session Notes</Text>
+          <View style={[styles.field, styles.sessionNotesSection]}>
+            <Text style={styles.sessionNotesTitle}>Session Notes</Text>
             <Text style={styles.fieldHelper}>
               Add brief notes as the session happens. Each entry is saved with the current time to the minute.
             </Text>
@@ -873,29 +884,14 @@ export function NoteEditorScreen() {
               multiline
               textAlignVertical="top"
             />
+
+            <VoiceRecorder
+              onRecordingComplete={handleRecordingComplete}
+              onRecordingDeleted={handleRecordingDeleted}
+              onTranscriptComplete={handleTranscriptComplete}
+              existingAudioUri={audioUri}
+            />
           </View>
-
-          <VoiceRecorder
-            onRecordingComplete={handleRecordingComplete}
-            onRecordingDeleted={handleRecordingDeleted}
-            onTranscriptChange={handleTranscriptChange}
-            existingAudioUri={audioUri}
-            existingTranscript={transcript}
-          />
-
-          {transcript ? (
-            <View style={styles.transcriptContainer}>
-              <Text style={styles.fieldLabel}>Transcript</Text>
-              <TextInput
-                style={[styles.fieldInput, styles.transcriptInput]}
-                value={transcript}
-                onChangeText={handleTranscriptChange}
-                multiline
-                textAlignVertical="top"
-                accessibilityLabel="Editable voice transcript"
-              />
-            </View>
-          ) : null}
 
           <TouchableOpacity
             style={styles.convertButton}
@@ -1495,6 +1491,19 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     marginBottom: SPACING.sm,
   },
+  sessionNotesSection: {
+    backgroundColor: '#EDF4FB',
+    borderWidth: 1,
+    borderColor: COLORS.primaryLight,
+    borderRadius: 8,
+    padding: SPACING.md,
+  },
+  sessionNotesTitle: {
+    fontSize: TYPOGRAPHY.fontSizeMedium,
+    fontWeight: '700',
+    color: COLORS.primaryDark,
+    marginBottom: SPACING.xs,
+  },
   fieldInput: {
     backgroundColor: COLORS.surface,
     borderRadius: 8,
@@ -1606,16 +1615,6 @@ const styles = StyleSheet.create({
   pickerPlaceholder: {
     fontSize: TYPOGRAPHY.fontSizeBase,
     color: COLORS.textMuted,
-  },
-  transcriptContainer: {
-    backgroundColor: COLORS.surface,
-    padding: SPACING.md,
-    borderRadius: 8,
-    marginBottom: SPACING.md,
-  },
-  transcriptInput: {
-    minHeight: 120,
-    lineHeight: 22,
   },
   convertButton: {
     backgroundColor: COLORS.secondary,
