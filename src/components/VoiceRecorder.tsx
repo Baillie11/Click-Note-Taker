@@ -326,12 +326,7 @@ export function VoiceRecorder({
 
 const styles = StyleSheet.create({
   container: {
-    marginVertical: SPACING.md,
-    padding: SPACING.md,
-    backgroundColor: COLORS.surface,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    marginTop: SPACING.md,
   },
   label: {
     fontSize: TYPOGRAPHY.fontSizeBase,

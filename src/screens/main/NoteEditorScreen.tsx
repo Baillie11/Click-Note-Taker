@@ -829,22 +829,38 @@ export function NoteEditorScreen() {
             <Text style={styles.fieldHelper}>
               Add brief notes as the session happens. Each entry is saved with the current time to the minute.
             </Text>
-            <View style={styles.liveEntryComposer}>
-              <TextInput
-                style={[styles.fieldInput, styles.liveEntryInput]}
-                value={liveEntryDraft}
-                onChangeText={setLiveEntryDraft}
-                placeholder="Add a live session entry"
-                placeholderTextColor={COLORS.textMuted}
-                multiline
+            <View style={styles.sessionCapturePanel}>
+              <Text style={styles.sessionCaptureTitle}>Add a Session Note</Text>
+              <View style={styles.liveEntryComposer}>
+                <TextInput
+                  style={[styles.fieldInput, styles.liveEntryInput]}
+                  value={liveEntryDraft}
+                  onChangeText={setLiveEntryDraft}
+                  placeholder="Type a live session note"
+                  placeholderTextColor={COLORS.textMuted}
+                  multiline
+                />
+                <TouchableOpacity
+                  style={[styles.addEntryButton, !liveEntryDraft.trim() && styles.addEntryButtonDisabled]}
+                  onPress={handleAddSessionEntry}
+                  disabled={!liveEntryDraft.trim()}
+                >
+                  <Text style={styles.addEntryButtonText}>Add Typed Note</Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.captureDividerRow}>
+                <View style={styles.captureDivider} />
+                <Text style={styles.captureDividerText}>OR</Text>
+                <View style={styles.captureDivider} />
+              </View>
+
+              <VoiceRecorder
+                onRecordingComplete={handleRecordingComplete}
+                onRecordingDeleted={handleRecordingDeleted}
+                onTranscriptComplete={handleTranscriptComplete}
+                existingAudioUri={audioUri}
               />
-              <TouchableOpacity
-                style={[styles.addEntryButton, !liveEntryDraft.trim() && styles.addEntryButtonDisabled]}
-                onPress={handleAddSessionEntry}
-                disabled={!liveEntryDraft.trim()}
-              >
-                <Text style={styles.addEntryButtonText}>Add Note</Text>
-              </TouchableOpacity>
             </View>
 
             {sessionEntries.length > 0 ? (
@@ -885,12 +901,6 @@ export function NoteEditorScreen() {
               textAlignVertical="top"
             />
 
-            <VoiceRecorder
-              onRecordingComplete={handleRecordingComplete}
-              onRecordingDeleted={handleRecordingDeleted}
-              onTranscriptComplete={handleTranscriptComplete}
-              existingAudioUri={audioUri}
-            />
           </View>
 
           <TouchableOpacity
@@ -959,10 +969,17 @@ export function NoteEditorScreen() {
         onRequestClose={() => setShowSessionEntryTimeEditor(false)}
       >
         <KeyboardAvoidingView
-          style={styles.modalOverlay}
+          style={[styles.modalOverlay, styles.editNoteModalOverlay]}
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? SPACING.md : 0}
         >
-          <View style={styles.modalContent}>
+          <ScrollView
+            style={styles.editNoteModalScroll}
+            contentContainerStyle={styles.editNoteModalScrollContent}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="interactive"
+          >
+          <View style={[styles.modalContent, styles.editNoteModalContent]}>
             <Text style={styles.modalTitle}>Edit Note</Text>
 
             <View style={styles.field}>
@@ -1015,6 +1032,7 @@ export function NoteEditorScreen() {
               </TouchableOpacity>
             </View>
           </View>
+          </ScrollView>
         </KeyboardAvoidingView>
       </Modal>
 
@@ -1504,6 +1522,35 @@ const styles = StyleSheet.create({
     color: COLORS.primaryDark,
     marginBottom: SPACING.xs,
   },
+  sessionCapturePanel: {
+    backgroundColor: COLORS.surface,
+    borderWidth: 2,
+    borderColor: COLORS.primary,
+    borderRadius: 8,
+    padding: SPACING.md,
+  },
+  sessionCaptureTitle: {
+    fontSize: TYPOGRAPHY.fontSizeBase,
+    fontWeight: '700',
+    color: COLORS.primaryDark,
+    marginBottom: SPACING.sm,
+  },
+  captureDividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    marginTop: SPACING.md,
+  },
+  captureDivider: {
+    flex: 1,
+    height: 1,
+    backgroundColor: COLORS.border,
+  },
+  captureDividerText: {
+    fontSize: TYPOGRAPHY.fontSizeSmall,
+    fontWeight: '700',
+    color: COLORS.textLight,
+  },
   fieldInput: {
     backgroundColor: COLORS.surface,
     borderRadius: 8,
@@ -1663,6 +1710,23 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 16,
     padding: SPACING.lg,
     maxHeight: '70%',
+  },
+  editNoteModalOverlay: {
+    justifyContent: 'flex-start',
+  },
+  editNoteModalScroll: {
+    flex: 1,
+    width: '100%',
+  },
+  editNoteModalScrollContent: {
+    flexGrow: 1,
+    justifyContent: 'flex-start',
+    paddingTop: SPACING.md,
+  },
+  editNoteModalContent: {
+    maxHeight: undefined,
+    borderRadius: 16,
+    paddingBottom: SPACING.lg,
   },
   reflectionModalContent: {
     maxHeight: '90%',

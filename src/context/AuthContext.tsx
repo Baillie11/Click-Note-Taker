@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { AppState, AppStateStatus } from 'react-native';
 import { isPinConfigured } from '../utils/pin';
 import { isWithinGracePeriod, storeLastActiveTime } from '../utils/biometrics';
+import { getEmergencyLockRemainingMs } from '../utils/emergencyLock';
 import { AuthState } from '../types';
 
 interface AuthContextType extends AuthState {
@@ -31,8 +32,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
       
       // Check grace period
       if (pinConfigured) {
-        const withinGrace = await isWithinGracePeriod();
-        setIsAuthenticated(withinGrace);
+        const emergencyLockRemaining = await getEmergencyLockRemainingMs();
+        const withinGrace = emergencyLockRemaining > 0 ? false : await isWithinGracePeriod();
+        setIsAuthenticated(withinGrace && emergencyLockRemaining === 0);
       } else {
         setIsAuthenticated(false);
       }
@@ -51,8 +53,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
     if (nextAppState === 'active' && previousAppState === 'background') {
       // Only lock after a real background transition. Android can report
       // `inactive` while a permission dialog is visible.
-      const withinGrace = await isWithinGracePeriod();
-      if (!withinGrace && isPinSet) {
+      const emergencyLockRemaining = await getEmergencyLockRemainingMs();
+      const withinGrace = emergencyLockRemaining > 0 ? false : await isWithinGracePeriod();
+      if ((emergencyLockRemaining > 0 || !withinGrace) && isPinSet) {
         setIsAuthenticated(false);
       }
     } else if (nextAppState === 'background') {

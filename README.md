@@ -10,6 +10,7 @@ A beta React Native (Expo) app designed for NDIS support workers in Australia. C
 - **Note Taking**: Type notes or record voice notes with editable speech-to-text
 - **Private Transcription**: Australian English speech recognition runs on-device without a cloud fallback
 - **Fast Voice Notes**: Stopping a recording adds its transcript directly to the editable, time-stamped session timeline
+- **Emergency Lock**: Entering `999` on the unlock screen blocks PIN and biometric access for 15 minutes, including after an app restart
 - **Auto-save**: Notes automatically save every 5 seconds
 - **Auto Timestamp**: Time In auto-assigned on note creation, editable Time In/Out
 - **Australian Date Format**: All dates displayed in DD/MM/YYYY format

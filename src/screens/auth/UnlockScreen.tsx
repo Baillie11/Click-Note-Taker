@@ -20,7 +20,16 @@ import {
   getBiometricTypeName,
 } from '../../utils/biometrics';
 import { openCompanyWebsite } from '../../utils/links';
-import { APP_NAME, APP_TAGLINE, COLORS, TYPOGRAPHY, SPACING } from '../../constants';
+import { activateEmergencyLock, getEmergencyLockRemainingMs } from '../../utils/emergencyLock';
+import {
+  APP_NAME,
+  APP_TAGLINE,
+  COLORS,
+  EMERGENCY_LOCK_CODE,
+  EMERGENCY_LOCK_MINUTES,
+  TYPOGRAPHY,
+  SPACING,
+} from '../../constants';
 
 export function UnlockScreen() {
   const { setAuthenticated } = useAuth();
@@ -29,13 +38,32 @@ export function UnlockScreen() {
   const [attempts, setAttempts] = useState(0);
   const [biometricsAvailable, setBiometricsAvailable] = useState(false);
   const [biometricTypeName, setBiometricTypeName] = useState('Biometrics');
+  const [emergencyLockRemainingMs, setEmergencyLockRemainingMs] = useState(0);
 
   useEffect(() => {
-    checkAndTriggerBiometrics();
+    initializeUnlockScreen();
   }, []);
+
+  useEffect(() => {
+    if (emergencyLockRemainingMs <= 0) return;
+
+    const timer = setInterval(async () => {
+      const remaining = await getEmergencyLockRemainingMs();
+      setEmergencyLockRemainingMs(remaining);
+      if (remaining === 0) await checkAndTriggerBiometrics();
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [emergencyLockRemainingMs > 0]);
+
+  const initializeUnlockScreen = async () => {
+    const remaining = await getEmergencyLockRemainingMs();
+    setEmergencyLockRemainingMs(remaining);
+    if (remaining === 0) await checkAndTriggerBiometrics();
+  };
 
   const checkAndTriggerBiometrics = async () => {
     try {
+      if (await getEmergencyLockRemainingMs() > 0) return;
       const capability = await checkBiometricCapability();
       const enabled = await isBiometricsEnabled();
       
@@ -57,6 +85,22 @@ export function UnlockScreen() {
   };
 
   const handleUnlock = async () => {
+    if (emergencyLockRemainingMs > 0) return;
+
+    if (pin === EMERGENCY_LOCK_CODE) {
+      try {
+        const lockUntil = await activateEmergencyLock();
+        setPin('');
+        setBiometricsAvailable(false);
+        setEmergencyLockRemainingMs(lockUntil - Date.now());
+        Alert.alert('App Locked', `Click Note Taker is locked for ${EMERGENCY_LOCK_MINUTES} minutes.`);
+      } catch (error) {
+        console.error('Could not activate emergency lock:', error);
+        Alert.alert('Error', 'The emergency lock could not be activated.');
+      }
+      return;
+    }
+
     if (pin.length < 4) {
       Alert.alert('Invalid PIN', 'Please enter your PIN (4-6 digits)');
       return;
@@ -92,6 +136,7 @@ export function UnlockScreen() {
 
   const handleBiometricAuth = async () => {
     try {
+      if (await getEmergencyLockRemainingMs() > 0) return;
       const success = await authenticateWithBiometrics();
       if (success) {
         setAuthenticated(true);
@@ -100,6 +145,9 @@ export function UnlockScreen() {
       console.error('Biometric auth error:', error);
     }
   };
+
+  const lockMinutes = Math.max(1, Math.ceil(emergencyLockRemainingMs / 60000));
+  const canSubmit = pin === EMERGENCY_LOCK_CODE || pin.length >= 4;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -119,8 +167,14 @@ export function UnlockScreen() {
           </View>
 
           <View style={styles.form}>
-            <Text style={styles.title}>Welcome Back</Text>
-            <Text style={styles.subtitle}>Enter your PIN to unlock</Text>
+            <Text style={styles.title}>
+              {emergencyLockRemainingMs > 0 ? 'Temporarily Locked' : 'Welcome Back'}
+            </Text>
+            <Text style={styles.subtitle}>
+              {emergencyLockRemainingMs > 0
+                ? `Try again in approximately ${lockMinutes} minute${lockMinutes === 1 ? '' : 's'}.`
+                : 'Enter your PIN to unlock'}
+            </Text>
 
             <TextInput
               style={styles.input}
@@ -132,6 +186,7 @@ export function UnlockScreen() {
               placeholder="Enter PIN"
               placeholderTextColor={COLORS.textMuted}
               autoFocus
+              editable={emergencyLockRemainingMs === 0}
               onSubmitEditing={handleUnlock}
             />
 
@@ -148,16 +203,16 @@ export function UnlockScreen() {
             </View>
 
             <TouchableOpacity
-              style={[styles.button, pin.length < 4 && styles.buttonDisabled]}
+              style={[styles.button, (!canSubmit || emergencyLockRemainingMs > 0) && styles.buttonDisabled]}
               onPress={handleUnlock}
-              disabled={pin.length < 4 || isLoading || attempts >= 5}
+              disabled={!canSubmit || isLoading || attempts >= 5 || emergencyLockRemainingMs > 0}
             >
               <Text style={styles.buttonText}>
                 {isLoading ? 'Verifying...' : 'Unlock'}
               </Text>
             </TouchableOpacity>
 
-            {biometricsAvailable && (
+            {biometricsAvailable && emergencyLockRemainingMs === 0 && (
               <TouchableOpacity
                 style={styles.biometricButton}
                 onPress={handleBiometricAuth}
