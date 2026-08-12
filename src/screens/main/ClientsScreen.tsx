@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -18,6 +18,7 @@ import { getAllClients, createClient, searchClients, getNotesCountByClientId } f
 import { Client, RootStackParamList } from '../../types';
 import { getRelativeTime } from '../../utils/dateTime';
 import { APP_NAME, COLORS, TYPOGRAPHY, SPACING } from '../../constants';
+import { isClientShiftActive, parseClientShifts } from '../../utils/clientShifts';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -32,6 +33,14 @@ export function ClientsScreen() {
   const [newClientName, setNewClientName] = useState('');
   const [newClientNdis, setNewClientNdis] = useState('');
   const [newClientAddress, setNewClientAddress] = useState('');
+  const [currentTime, setCurrentTime] = useState(() => new Date());
+
+  const sortedClients = useMemo(() => [...clients].sort((first, second) => {
+    const firstIsCurrent = isClientShiftActive(parseClientShifts(first.shifts), currentTime);
+    const secondIsCurrent = isClientShiftActive(parseClientShifts(second.shifts), currentTime);
+    if (firstIsCurrent !== secondIsCurrent) return firstIsCurrent ? -1 : 1;
+    return first.fullName.localeCompare(second.fullName, undefined, { sensitivity: 'base' });
+  }), [clients, currentTime]);
 
   const loadClients = useCallback(async () => {
     try {
@@ -67,6 +76,11 @@ export function ClientsScreen() {
     return () => clearTimeout(debounce);
   }, [searchQuery, loadClients]);
 
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 60 * 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   const handleRefresh = () => {
     setIsRefreshing(true);
     loadClients();
@@ -97,6 +111,7 @@ export function ClientsScreen() {
 
   const renderClient = ({ item }: { item: Client }) => {
     const noteCount = noteCounts[item.id] || 0;
+    const isCurrentShift = isClientShiftActive(parseClientShifts(item.shifts), currentTime);
     
     return (
       <TouchableOpacity
@@ -112,6 +127,7 @@ export function ClientsScreen() {
           </View>
           <View style={styles.clientDetails}>
             <Text style={styles.clientName}>{item.fullName}</Text>
+            {isCurrentShift && <Text style={styles.currentShiftLabel}>Current shift</Text>}
             {item.preferredName && (
               <Text style={styles.preferredName}>"{item.preferredName}"</Text>
             )}
@@ -145,7 +161,7 @@ export function ClientsScreen() {
       </View>
 
       <FlatList
-        data={clients}
+        data={sortedClients}
         keyExtractor={(item) => item.id}
         renderItem={renderClient}
         contentContainerStyle={styles.list}
@@ -321,6 +337,14 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSizeSmall,
     color: COLORS.textLight,
     fontStyle: 'italic',
+  },
+  currentShiftLabel: {
+    alignSelf: 'flex-start',
+    marginTop: 2,
+    marginBottom: 2,
+    fontSize: TYPOGRAPHY.fontSizeSmall,
+    color: COLORS.success,
+    fontWeight: '700',
   },
   ndisNumber: {
     fontSize: TYPOGRAPHY.fontSizeSmall,

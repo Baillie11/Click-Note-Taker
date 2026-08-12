@@ -39,6 +39,32 @@ function dateAtTime(base: Date, time: string): Date {
   return result;
 }
 
+export function isClientShiftActive(shifts: ClientShift[], now: Date = new Date()): boolean {
+  return shifts.some(shift => {
+    const start = dateAtTime(now, shift.startTime);
+    const end = dateAtTime(now, shift.endTime);
+
+    if (shift.endTime <= shift.startTime) {
+      if (now.getDay() === shift.weekday) {
+        end.setDate(end.getDate() + 1);
+      } else {
+        start.setDate(start.getDate() - 1);
+        return start.getDay() === shift.weekday && now >= start && now < end;
+      }
+    } else if (now.getDay() !== shift.weekday) {
+      return false;
+    }
+
+    return now >= start && now < end;
+  });
+}
+
+export function areShiftsDuplicates(first: ClientShift, second: ClientShift): boolean {
+  return first.weekday === second.weekday &&
+    first.startTime === second.startTime &&
+    first.endTime === second.endTime;
+}
+
 export function getScheduledShiftEnd(noteTime: string, shifts: ClientShift[]): string | undefined {
   const noteDate = new Date(noteTime);
   const candidates = shifts

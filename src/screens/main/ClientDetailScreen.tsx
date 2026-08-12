@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,8 @@ import {
   Modal,
   TextInput,
   ScrollView,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RouteProp, useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
@@ -33,7 +35,7 @@ import {
   serializeCustomPrompts,
 } from '../../utils/sessionSummaryPrompts';
 import { COLORS, TYPOGRAPHY, SPACING } from '../../constants';
-import { WEEKDAYS, isValidShiftTime, normalizeShiftTime, parseClientShifts, serializeClientShifts } from '../../utils/clientShifts';
+import { areShiftsDuplicates, WEEKDAYS, isValidShiftTime, normalizeShiftTime, parseClientShifts, serializeClientShifts } from '../../utils/clientShifts';
 import {
   DEFAULT_CLIENT_REMINDERS,
   parseCustomReminderItems,
@@ -122,6 +124,11 @@ export function ClientDetailScreen() {
   const [editCustomReminderItems, setEditCustomReminderItems] = useState<ClientReminderItem[]>([]);
   const [newCustomReminderItem, setNewCustomReminderItem] = useState('');
   const [editNotes, setEditNotes] = useState('');
+  const editModalScrollRef = useRef<ScrollView>(null);
+
+  const scrollEditModalToBottom = () => {
+    setTimeout(() => editModalScrollRef.current?.scrollToEnd({ animated: true }), 250);
+  };
 
   const loadData = useCallback(async () => {
     try {
@@ -196,15 +203,17 @@ export function ClientDetailScreen() {
       Alert.alert('Invalid Shift Time', 'Enter shift times in 24-hour format, for example 09:00 or 17:30.');
       return;
     }
-    setEditShifts(current => [
-      ...current,
-      {
-        id: `shift-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        weekday: newShiftWeekday,
-        startTime: normalizeShiftTime(newShiftStart),
-        endTime: normalizeShiftTime(newShiftEnd),
-      },
-    ]);
+    const nextShift: ClientShift = {
+      id: `shift-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      weekday: newShiftWeekday,
+      startTime: normalizeShiftTime(newShiftStart),
+      endTime: normalizeShiftTime(newShiftEnd),
+    };
+    if (editShifts.some(existing => areShiftsDuplicates(existing, nextShift))) {
+      Alert.alert('Duplicate Shift', 'This client already has a shift with the same day, start time, and finish time.');
+      return;
+    }
+    setEditShifts(current => [...current, nextShift]);
   };
 
   const handleAddCustomReminder = () => {
@@ -411,8 +420,17 @@ export function ClientDetailScreen() {
         transparent
         onRequestClose={() => setShowEditModal(false)}
       >
-        <View style={styles.modalOverlay}>
-          <ScrollView style={styles.modalScrollView}>
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <ScrollView
+            ref={editModalScrollRef}
+            style={styles.modalScrollView}
+            contentContainerStyle={styles.modalScrollContent}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="interactive"
+          >
             <View style={styles.modalContent}>
               <Text style={styles.modalTitle}>Edit Client</Text>
 
@@ -556,6 +574,7 @@ export function ClientDetailScreen() {
                     placeholder="Reminder item"
                     placeholderTextColor={COLORS.textMuted}
                     multiline
+                    onFocus={scrollEditModalToBottom}
                   />
                   <TouchableOpacity
                     style={styles.removePromptButton}
@@ -572,6 +591,7 @@ export function ClientDetailScreen() {
                 placeholder="Add a custom reminder"
                 placeholderTextColor={COLORS.textMuted}
                 multiline
+                onFocus={scrollEditModalToBottom}
               />
               <TouchableOpacity
                 style={[styles.addPromptButton, !newCustomReminderItem.trim() && styles.addPromptButtonDisabled]}
@@ -619,6 +639,7 @@ export function ClientDetailScreen() {
                     placeholder="End-of-shift question"
                     placeholderTextColor={COLORS.textMuted}
                     multiline
+                    onFocus={scrollEditModalToBottom}
                   />
                   <TouchableOpacity
                     style={styles.removePromptButton}
@@ -635,6 +656,7 @@ export function ClientDetailScreen() {
                 placeholder="Add your own question"
                 placeholderTextColor={COLORS.textMuted}
                 multiline
+                onFocus={scrollEditModalToBottom}
               />
               <TouchableOpacity
                 style={[styles.addPromptButton, !newCustomPrompt.trim() && styles.addPromptButtonDisabled]}
@@ -667,7 +689,7 @@ export function ClientDetailScreen() {
               </TouchableOpacity>
             </View>
           </ScrollView>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );
@@ -947,7 +969,11 @@ const styles = StyleSheet.create({
   },
   modalScrollView: {
     flex: 1,
-    marginTop: 100,
+    marginTop: SPACING.md,
+  },
+  modalScrollContent: {
+    flexGrow: 1,
+    paddingTop: SPACING.md,
   },
   modalContent: {
     backgroundColor: COLORS.surface,
