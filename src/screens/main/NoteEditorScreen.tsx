@@ -129,6 +129,7 @@ export function NoteEditorScreen() {
   
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const noteIdRef = useRef<string | null>(noteId || null);
+  const editorScrollRef = useRef<ScrollView>(null);
 
   useEffect(() => {
     loadData();
@@ -695,7 +696,16 @@ export function NoteEditorScreen() {
           </View>
         </View>
       ) : (
-        <ScrollView style={styles.content} keyboardShouldPersistTaps="handled">
+        <KeyboardAvoidingView
+          style={styles.editorKeyboardView}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+        <ScrollView
+          ref={editorScrollRef}
+          style={styles.content}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
+        >
           <View style={styles.clientInfo}>
             <Text style={styles.clientName}>Client: {client?.fullName}</Text>
           </View>
@@ -899,6 +909,7 @@ export function NoteEditorScreen() {
               placeholderTextColor={COLORS.textMuted}
               multiline
               textAlignVertical="top"
+              onFocus={() => setTimeout(() => editorScrollRef.current?.scrollToEnd({ animated: true }), 250)}
             />
 
           </View>
@@ -914,6 +925,7 @@ export function NoteEditorScreen() {
 
           <View style={styles.spacer} />
         </ScrollView>
+        </KeyboardAvoidingView>
       )}
 
       <Footer />
@@ -1042,13 +1054,16 @@ export function NoteEditorScreen() {
         transparent
         onRequestClose={() => setShowReflectionForm(false)}
       >
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
           <View style={[styles.modalContent, styles.reflectionModalContent]}>
             <Text style={styles.modalTitle}>Complete Session Summary</Text>
             <Text style={styles.reflectionIntro}>
               Complete the prompts selected in this client's profile.
             </Text>
-            <ScrollView keyboardShouldPersistTaps="handled">
+            <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive">
               {reminderChecklist.length > 0 && (
                 <View style={styles.reflectionChecklist}>
                   <Text style={styles.reflectionChecklistTitle}>End-of-Shift Checklist</Text>
@@ -1148,7 +1163,7 @@ export function NoteEditorScreen() {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       <Modal
@@ -1157,8 +1172,16 @@ export function NoteEditorScreen() {
         transparent
         onRequestClose={() => setShowTimeInEditor(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+        <KeyboardAvoidingView
+          style={[styles.modalOverlay, styles.editNoteModalOverlay]}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <ScrollView
+            style={styles.editNoteModalScroll}
+            contentContainerStyle={styles.editNoteModalScrollContent}
+            keyboardShouldPersistTaps="handled"
+          >
+          <View style={[styles.modalContent, styles.editNoteModalContent]}>
             <Text style={styles.modalTitle}>Edit Time In</Text>
 
             <View style={styles.field}>
@@ -1198,7 +1221,8 @@ export function NoteEditorScreen() {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </Modal>
 
       <Modal
@@ -1207,8 +1231,16 @@ export function NoteEditorScreen() {
         transparent
         onRequestClose={() => setShowTimeOutEditor(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+        <KeyboardAvoidingView
+          style={[styles.modalOverlay, styles.editNoteModalOverlay]}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <ScrollView
+            style={styles.editNoteModalScroll}
+            contentContainerStyle={styles.editNoteModalScrollContent}
+            keyboardShouldPersistTaps="handled"
+          >
+          <View style={[styles.modalContent, styles.editNoteModalContent]}>
             <Text style={styles.modalTitle}>Edit Time Out</Text>
 
             <View style={styles.field}>
@@ -1256,7 +1288,8 @@ export function NoteEditorScreen() {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );
@@ -1350,6 +1383,9 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginBottom: SPACING.md,
     borderLeftWidth: 5,
+  },
+  editorKeyboardView: {
+    flex: 1,
   },
   timeSection_incomplete: {
     backgroundColor: '#FFF5F5',

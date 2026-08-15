@@ -179,6 +179,19 @@ export async function getNotesCountByClientId(clientId: string): Promise<number>
 }
 
 /**
+ * Get notes that are still open for a client.
+ */
+export async function getOpenNotesCountByClientId(clientId: string): Promise<number> {
+  const db = await getDatabase();
+  const result = await db.getFirstAsync<{ count: number }>(
+    `SELECT COUNT(*) as count FROM notes
+     WHERE clientId = ? AND (status IS NULL OR status != 'submitted')`,
+    [clientId]
+  );
+  return result?.count || 0;
+}
+
+/**
  * Get recent notes across all clients
  */
 export async function getRecentNotes(limit: number = 10): Promise<Note[]> {

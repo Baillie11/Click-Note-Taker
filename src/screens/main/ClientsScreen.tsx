@@ -14,7 +14,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Footer } from '../../components/Footer';
-import { getAllClients, createClient, searchClients, getNotesCountByClientId } from '../../database';
+import {
+  getAllClients,
+  createClient,
+  searchClients,
+  getNotesCountByClientId,
+  getOpenNotesCountByClientId,
+} from '../../database';
 import { Client, RootStackParamList } from '../../types';
 import { getRelativeTime } from '../../utils/dateTime';
 import { APP_NAME, COLORS, TYPOGRAPHY, SPACING } from '../../constants';
@@ -26,6 +32,7 @@ export function ClientsScreen() {
   const navigation = useNavigation<NavigationProp>();
   const [clients, setClients] = useState<Client[]>([]);
   const [noteCounts, setNoteCounts] = useState<Record<string, number>>({});
+  const [openNoteCounts, setOpenNoteCounts] = useState<Record<string, number>>({});
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -49,12 +56,18 @@ export function ClientsScreen() {
         : await getAllClients();
       setClients(data);
 
-      // Load note counts
       const counts: Record<string, number> = {};
-      for (const client of data) {
-        counts[client.id] = await getNotesCountByClientId(client.id);
-      }
+      const openCounts: Record<string, number> = {};
+      await Promise.all(data.map(async client => {
+        const [total, open] = await Promise.all([
+          getNotesCountByClientId(client.id),
+          getOpenNotesCountByClientId(client.id),
+        ]);
+        counts[client.id] = total;
+        openCounts[client.id] = open;
+      }));
       setNoteCounts(counts);
+      setOpenNoteCounts(openCounts);
     } catch (error) {
       console.error('Error loading clients:', error);
     } finally {
@@ -111,11 +124,12 @@ export function ClientsScreen() {
 
   const renderClient = ({ item }: { item: Client }) => {
     const noteCount = noteCounts[item.id] || 0;
+    const openNoteCount = openNoteCounts[item.id] || 0;
     const isCurrentShift = isClientShiftActive(parseClientShifts(item.shifts), currentTime);
     
     return (
       <TouchableOpacity
-        style={styles.clientCard}
+        style={[styles.clientCard, openNoteCount > 0 && styles.clientCardOpen]}
         onPress={() => navigation.navigate('ClientDetail', { clientId: item.id })}
         activeOpacity={0.7}
       >
@@ -128,6 +142,11 @@ export function ClientsScreen() {
           <View style={styles.clientDetails}>
             <Text style={styles.clientName}>{item.fullName}</Text>
             {isCurrentShift && <Text style={styles.currentShiftLabel}>Current shift</Text>}
+            {openNoteCount > 0 && (
+              <Text style={styles.openNoteLabel}>
+                {openNoteCount} open shift note{openNoteCount !== 1 ? 's' : ''}
+              </Text>
+            )}
             {item.preferredName && (
               <Text style={styles.preferredName}>"{item.preferredName}"</Text>
             )}
@@ -305,6 +324,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 2,
     elevation: 1,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  clientCardOpen: {
+    backgroundColor: '#FFF5F5',
+    borderColor: '#FEB2B2',
   },
   clientInfo: {
     flex: 1,
@@ -344,6 +369,14 @@ const styles = StyleSheet.create({
     marginBottom: 2,
     fontSize: TYPOGRAPHY.fontSizeSmall,
     color: COLORS.success,
+    fontWeight: '700',
+  },
+  openNoteLabel: {
+    alignSelf: 'flex-start',
+    marginTop: 2,
+    marginBottom: 2,
+    fontSize: TYPOGRAPHY.fontSizeSmall,
+    color: '#C53030',
     fontWeight: '700',
   },
   ndisNumber: {
