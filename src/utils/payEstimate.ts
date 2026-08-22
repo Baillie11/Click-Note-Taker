@@ -23,11 +23,19 @@ export interface ShiftPayEstimate {
 export interface PayEstimate {
   shifts: ShiftPayEstimate[];
   days: DailyPayEstimate[];
+  clients: ClientPayEstimate[];
   hours: number;
   gross: number;
   tax: number;
   net: number;
   superannuation: number;
+}
+
+export interface ClientPayEstimate {
+  clientId: string;
+  shifts: ShiftPayEstimate[];
+  hours: number;
+  gross: number;
 }
 
 export interface DailyPayEstimate {
@@ -192,10 +200,20 @@ export function estimatePay(
     result[key] = current;
     return result;
   }, {})).sort((first, second) => new Date(first.date).getTime() - new Date(second.date).getTime());
+  const clientTotals = Object.values(shifts.reduce<Record<string, ClientPayEstimate>>((result, shift) => {
+    const clientId = shift.note.clientId;
+    const current = result[clientId] || { clientId, shifts: [], hours: 0, gross: 0 };
+    current.shifts.push(shift);
+    current.hours += shift.hours;
+    current.gross = roundMoney(current.gross + shift.gross);
+    result[clientId] = current;
+    return result;
+  }, {}));
   const tax = estimatePaygWithholding(gross, settings.payPeriodFrequency, settings.claimsTaxFreeThreshold);
   return {
     shifts,
     days,
+    clients: clientTotals,
     hours,
     gross,
     tax,

@@ -52,6 +52,14 @@ function dayLabel(value: string): string {
   });
 }
 
+function shortDate(value: string): string {
+  return new Date(value).toLocaleDateString('en-AU', {
+    day: 'numeric',
+    month: 'numeric',
+    year: '2-digit',
+  });
+}
+
 export function PayEstimateScreen() {
   const [settings, setSettings] = useState<PaySettings>(DEFAULT_PAY_SETTINGS);
   const [rateInput, setRateInput] = useState('');
@@ -297,6 +305,33 @@ export function PayEstimateScreen() {
                 ))}
               </View>
 
+              <Text style={styles.listTitle}>Client Pay Summary</Text>
+              {estimate.clients.map(clientTotal => (
+                <View key={clientTotal.clientId} style={styles.clientSummary}>
+                  <Text style={styles.clientSummaryName}>
+                    {clients[clientTotal.clientId]?.fullName || 'Client'}
+                  </Text>
+                  <View style={styles.clientTableHeader}>
+                    <Text style={[styles.clientHeaderText, styles.dateColumn]}>Date</Text>
+                    <Text style={[styles.clientHeaderText, styles.hoursColumn]}>Hours</Text>
+                    <Text style={[styles.clientHeaderText, styles.rateColumn]}>Rate</Text>
+                    <Text style={[styles.clientHeaderText, styles.totalColumn]}>Total</Text>
+                  </View>
+                  {clientTotal.shifts.map(shift => (
+                    <View key={shift.note.id} style={styles.clientTableRow}>
+                      <Text style={[styles.clientCellText, styles.dateColumn]}>{shortDate(shift.paidStart)}</Text>
+                      <Text style={[styles.clientCellText, styles.hoursColumn]}>{shift.hours.toFixed(2)}</Text>
+                      <Text style={[styles.clientCellText, styles.rateColumn]}>{money(shift.rate)}</Text>
+                      <Text style={[styles.clientTotalCell, styles.totalColumn]}>{money(shift.gross)}</Text>
+                    </View>
+                  ))}
+                  <View style={styles.clientSummaryTotal}>
+                    <Text style={styles.clientSummaryTotalLabel}>Client total · {hours(clientTotal.hours)}</Text>
+                    <Text style={styles.clientSummaryTotalValue}>{money(clientTotal.gross)}</Text>
+                  </View>
+                </View>
+              ))}
+
               <Text style={styles.listTitle}>Completed Shifts ({estimate.shifts.length})</Text>
               {estimate.shifts.length === 0 ? (
                 <Text style={styles.emptyText}>No completed shift notes were found in this pay period.</Text>
@@ -389,6 +424,20 @@ const styles = StyleSheet.create({
   dailyDay: { fontSize: TYPOGRAPHY.fontSizeBase, color: COLORS.text, fontWeight: '700' },
   dailyHours: { fontSize: TYPOGRAPHY.fontSizeSmall, color: COLORS.textLight, marginTop: 2 },
   dailyGross: { fontSize: TYPOGRAPHY.fontSizeBase, color: COLORS.primary, fontWeight: '700' },
+  clientSummary: { backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border, borderRadius: 8, marginBottom: SPACING.md, overflow: 'hidden' },
+  clientSummaryName: { padding: SPACING.md, fontSize: TYPOGRAPHY.fontSizeBase, color: COLORS.text, fontWeight: '700', backgroundColor: '#EDF2F7' },
+  clientTableHeader: { flexDirection: 'row', paddingHorizontal: SPACING.sm, paddingVertical: SPACING.xs, borderBottomWidth: 1, borderBottomColor: COLORS.border },
+  clientTableRow: { minHeight: 44, flexDirection: 'row', alignItems: 'center', paddingHorizontal: SPACING.sm, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLORS.border },
+  clientHeaderText: { fontSize: 10, color: COLORS.textLight, fontWeight: '700', textTransform: 'uppercase' },
+  clientCellText: { fontSize: TYPOGRAPHY.fontSizeSmall, color: COLORS.text },
+  clientTotalCell: { fontSize: TYPOGRAPHY.fontSizeSmall, color: COLORS.primary, fontWeight: '700', textAlign: 'right' },
+  dateColumn: { width: '25%' },
+  hoursColumn: { width: '18%', textAlign: 'center' },
+  rateColumn: { width: '25%', textAlign: 'right' },
+  totalColumn: { width: '32%', textAlign: 'right' },
+  clientSummaryTotal: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: SPACING.md, backgroundColor: '#F7FAFC' },
+  clientSummaryTotalLabel: { flex: 1, fontSize: TYPOGRAPHY.fontSizeSmall, color: COLORS.text, fontWeight: '700' },
+  clientSummaryTotalValue: { fontSize: TYPOGRAPHY.fontSizeBase, color: COLORS.primaryDark, fontWeight: '700' },
   emptyText: { color: COLORS.textMuted, textAlign: 'center', paddingVertical: SPACING.xl },
   shiftRow: { flexDirection: 'row', backgroundColor: COLORS.surface, borderBottomWidth: 1, borderBottomColor: COLORS.border, padding: SPACING.md },
   shiftMain: { flex: 1, marginRight: SPACING.sm },
