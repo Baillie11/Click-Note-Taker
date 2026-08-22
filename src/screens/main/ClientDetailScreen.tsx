@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -46,6 +46,89 @@ import {
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type ClientDetailRouteProp = RouteProp<RootStackParamList, 'ClientDetail'>;
+
+type ShiftPeriod = 'AM' | 'PM';
+
+function getShiftTimeParts(value: string): { text: string; period: ShiftPeriod } {
+  const [hours, minutes] = value.split(':').map(Number);
+  return {
+    text: `${hours % 12 || 12}:${String(minutes).padStart(2, '0')}`,
+    period: hours >= 12 ? 'PM' : 'AM',
+  };
+}
+
+function parseShiftTime(text: string, period: ShiftPeriod): string | undefined {
+  const match = /^(\d{1,2}):(\d{2})$/.exec(text.trim());
+  if (!match) return undefined;
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (hour < 1 || hour > 12 || minute < 0 || minute > 59) return undefined;
+  const hours24 = (hour % 12) + (period === 'PM' ? 12 : 0);
+  return `${String(hours24).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+}
+
+function ShiftTimeControl({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const parts = getShiftTimeParts(value);
+  const [text, setText] = useState(parts.text);
+  const [period, setPeriod] = useState<ShiftPeriod>(parts.period);
+
+  useEffect(() => {
+    const next = getShiftTimeParts(value);
+    setText(next.text);
+    setPeriod(next.period);
+  }, [value]);
+
+  const commit = (nextPeriod = period) => {
+    const normalized = parseShiftTime(text, nextPeriod);
+    if (!normalized) {
+      const current = getShiftTimeParts(value);
+      setText(current.text);
+      setPeriod(current.period);
+      Alert.alert('Invalid Shift Time', 'Enter a time such as 2:30, then select AM or PM.');
+      return;
+    }
+    onChange(normalized);
+  };
+
+  const choosePeriod = (nextPeriod: ShiftPeriod) => {
+    setPeriod(nextPeriod);
+    commit(nextPeriod);
+  };
+
+  return (
+    <View style={styles.shiftEditorField}>
+      <Text style={styles.shiftEditorLabel}>{label}</Text>
+      <View style={styles.shiftEditorRow}>
+        <TextInput
+          style={styles.shiftEditorInput}
+          value={text}
+          onChangeText={setText}
+          onBlur={() => commit()}
+          keyboardType="numbers-and-punctuation"
+          placeholder="2:30"
+          placeholderTextColor={COLORS.textMuted}
+        />
+        {(['AM', 'PM'] as ShiftPeriod[]).map(option => (
+          <TouchableOpacity
+            key={option}
+            style={[styles.periodButton, period === option && styles.periodButtonSelected]}
+            onPress={() => choosePeriod(option)}
+          >
+            <Text style={[styles.periodButtonText, period === option && styles.periodButtonTextSelected]}>{option}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+    </View>
+  );
+}
 
 function getNoteStatus(note: Note): NoteStatus {
   return note.status || 'incomplete';
@@ -214,6 +297,24 @@ export function ClientDetailScreen() {
       return;
     }
     setEditShifts(current => [...current, nextShift]);
+  };
+
+  const handleSaveRegularShifts = async () => {
+    const hasDuplicate = editShifts.some((shift, index) =>
+      editShifts.some((other, otherIndex) => index !== otherIndex && areShiftsDuplicates(shift, other))
+    );
+    if (hasDuplicate) {
+      Alert.alert('Duplicate Shift', 'Remove or change shifts with the same day, start time, and finish time.');
+      return;
+    }
+    try {
+      await updateClient(clientId, { shifts: serializeClientShifts(editShifts) });
+      setClient(current => current ? { ...current, shifts: serializeClientShifts(editShifts) } : current);
+      Alert.alert('Regular shifts saved', 'Pay estimates and reminders will use these updated shift times.');
+    } catch (error) {
+      console.error('Error updating regular shifts:', error);
+      Alert.alert('Unable to save', 'The regular shifts could not be saved.');
+    }
   };
 
   const handleAddCustomReminder = () => {
@@ -491,7 +592,18 @@ export function ClientDetailScreen() {
                 <View key={shift.id} style={styles.shiftRow}>
                   <View style={styles.shiftDetails}>
                     <Text style={styles.shiftDay}>{WEEKDAYS[shift.weekday]}</Text>
-                    <Text style={styles.shiftTime}>{shift.startTime} - {shift.endTime}</Text>
+                    <View style={styles.existingShiftEditors}>
+                      <ShiftTimeControl
+                        label="Start"
+                        value={shift.startTime}
+                        onChange={startTime => setEditShifts(current => current.map(item => item.id === shift.id ? { ...item, startTime } : item))}
+                      />
+                      <ShiftTimeControl
+                        label="Finish"
+                        value={shift.endTime}
+                        onChange={endTime => setEditShifts(current => current.map(item => item.id === shift.id ? { ...item, endTime } : item))}
+                      />
+                    </View>
                   </View>
                   <TouchableOpacity onPress={() => setEditShifts(current => current.filter(item => item.id !== shift.id))}>
                     <Text style={styles.removePromptButtonText}>Remove</Text>
@@ -512,31 +624,14 @@ export function ClientDetailScreen() {
                 ))}
               </View>
               <View style={styles.shiftTimeInputs}>
-                <View style={styles.shiftTimeField}>
-                  <Text style={styles.inputLabel}>Start</Text>
-                  <TextInput
-                    style={styles.modalInput}
-                    value={newShiftStart}
-                    onChangeText={setNewShiftStart}
-                    placeholder="09:00"
-                    placeholderTextColor={COLORS.textMuted}
-                    keyboardType="numbers-and-punctuation"
-                  />
-                </View>
-                <View style={styles.shiftTimeField}>
-                  <Text style={styles.inputLabel}>Finish</Text>
-                  <TextInput
-                    style={styles.modalInput}
-                    value={newShiftEnd}
-                    onChangeText={setNewShiftEnd}
-                    placeholder="17:00"
-                    placeholderTextColor={COLORS.textMuted}
-                    keyboardType="numbers-and-punctuation"
-                  />
-                </View>
+                <ShiftTimeControl label="Start" value={newShiftStart} onChange={setNewShiftStart} />
+                <ShiftTimeControl label="Finish" value={newShiftEnd} onChange={setNewShiftEnd} />
               </View>
               <TouchableOpacity style={styles.addPromptButton} onPress={handleAddShift}>
                 <Text style={styles.addPromptButtonText}>Add Shift</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.saveShiftsButton} onPress={handleSaveRegularShifts}>
+                <Text style={styles.saveShiftsButtonText}>Save Regular Shifts</Text>
               </TouchableOpacity>
 
               <Text style={styles.promptSectionTitle}>End-of-Shift Reminders</Text>
@@ -1149,11 +1244,76 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   shiftTimeInputs: {
-    flexDirection: 'row',
     gap: SPACING.sm,
+    marginBottom: SPACING.md,
   },
   shiftTimeField: {
     flex: 1,
+  },
+  existingShiftEditors: {
+    gap: SPACING.sm,
+    marginTop: SPACING.xs,
+  },
+  shiftEditorField: {
+    flex: 1,
+    minWidth: 0,
+  },
+  shiftEditorLabel: {
+    fontSize: TYPOGRAPHY.fontSizeSmall,
+    color: COLORS.textLight,
+    marginBottom: SPACING.xs,
+  },
+  shiftEditorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+  },
+  shiftEditorInput: {
+    flex: 1,
+    minWidth: 68,
+    height: 42,
+    paddingHorizontal: SPACING.sm,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 6,
+    backgroundColor: COLORS.surface,
+    color: COLORS.text,
+    fontSize: TYPOGRAPHY.fontSizeBase,
+  },
+  periodButton: {
+    width: 42,
+    height: 42,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 6,
+    backgroundColor: COLORS.surface,
+  },
+  periodButtonSelected: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  periodButtonText: {
+    fontSize: TYPOGRAPHY.fontSizeSmall,
+    color: COLORS.text,
+    fontWeight: '700',
+  },
+  periodButtonTextSelected: {
+    color: COLORS.surface,
+  },
+  saveShiftsButton: {
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.success,
+    borderRadius: 8,
+    marginTop: SPACING.sm,
+  },
+  saveShiftsButtonText: {
+    color: COLORS.surface,
+    fontSize: TYPOGRAPHY.fontSizeBase,
+    fontWeight: '700',
   },
   modalButtons: {
     flexDirection: 'row',
