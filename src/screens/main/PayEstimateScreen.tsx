@@ -18,7 +18,7 @@ import { Footer } from '../../components/Footer';
 import { getAllClients, getCompletedNotesBetween } from '../../database';
 import { Client, EmploymentType, PayPeriodFrequency, PaySettings } from '../../types';
 import { COLORS, SPACING, TYPOGRAPHY } from '../../constants';
-import { estimatePay, getCurrentPayPeriod } from '../../utils/payEstimate';
+import { estimatePay, getCurrentPayPeriod, getDerivedPayRates } from '../../utils/payEstimate';
 import { DEFAULT_PAY_SETTINGS, getPaySettings, savePaySettings } from '../../utils/paySettings';
 import { formatAustralianDate, formatAustralianTime } from '../../utils/dateTime';
 
@@ -58,6 +58,7 @@ export function PayEstimateScreen() {
     [settings.payPeriodFrequency, settings.weekStartsOn, periodOffset]
   );
   const estimate = useMemo(() => estimatePay(notes, settings, clients), [notes, settings, clients]);
+  const derivedRates = useMemo(() => getDerivedPayRates(settings), [settings]);
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
@@ -146,6 +147,7 @@ export function PayEstimateScreen() {
               placeholder="0.00"
               placeholderTextColor={COLORS.textMuted}
             />
+            <Text style={styles.helper}>Enter the Monday-Friday ordinary rate shown on the payslip. If it already includes casual loading, leave the toggle below on.</Text>
 
             <Text style={styles.label}>Employment type</Text>
             <View style={styles.segmentedRow}>
@@ -173,6 +175,13 @@ export function PayEstimateScreen() {
                 />
               </View>
             )}
+
+            <View style={styles.ratePreview}>
+              <Text style={styles.ratePreviewTitle}>Calculated hourly rates</Text>
+              <View style={styles.ratePreviewRow}><Text style={styles.ratePreviewLabel}>Weekday</Text><Text style={styles.ratePreviewValue}>{money(derivedRates.ordinary)}</Text></View>
+              <View style={styles.ratePreviewRow}><Text style={styles.ratePreviewLabel}>Saturday</Text><Text style={styles.ratePreviewValue}>{money(derivedRates.saturday)}</Text></View>
+              <View style={styles.ratePreviewRow}><Text style={styles.ratePreviewLabel}>Sunday</Text><Text style={styles.ratePreviewValue}>{money(derivedRates.sunday)}</Text></View>
+            </View>
 
             {settings.employmentType !== 'fullTime' && (
               <>
@@ -262,6 +271,7 @@ export function PayEstimateScreen() {
                 <View style={styles.summaryItem}><Text style={styles.summaryLabel}>Gross</Text><Text style={styles.summaryValue}>{money(estimate.gross)}</Text></View>
                 <View style={styles.summaryItem}><Text style={styles.summaryLabel}>Est. PAYG</Text><Text style={styles.summaryValue}>{money(estimate.tax)}</Text></View>
                 <View style={[styles.summaryItem, styles.netItem]}><Text style={styles.summaryLabel}>Est. Take-home</Text><Text style={styles.netValue}>{money(estimate.net)}</Text></View>
+                <View style={styles.summaryItem}><Text style={styles.summaryLabel}>Super (12%)</Text><Text style={styles.summaryValue}>{money(estimate.superannuation)}</Text></View>
               </View>
 
               <Text style={styles.listTitle}>Completed Shifts ({estimate.shifts.length})</Text>
@@ -292,7 +302,7 @@ export function PayEstimateScreen() {
 
           <View style={styles.limitsBox}>
             <Text style={styles.limitsTitle}>Not included automatically</Text>
-            <Text style={styles.limitsText}>Broken-shift and sleepover allowances, kilometres, expenses, overtime, unpaid breaks, salary packaging, superannuation, HELP/STSL and individual workplace agreements.</Text>
+            <Text style={styles.limitsText}>Travel, mileage, expenses, broken-shift and sleepover allowances, overtime, unpaid breaks, salary packaging, HELP/STSL and individual workplace agreements. PAYG and super estimates only use earnings included above.</Text>
           </View>
           <View style={styles.spacer} />
         </ScrollView>
@@ -324,6 +334,11 @@ const styles = StyleSheet.create({
   switchCopy: { flex: 1, marginRight: SPACING.md },
   switchLabel: { fontSize: TYPOGRAPHY.fontSizeBase, fontWeight: '600', color: COLORS.text },
   helper: { fontSize: TYPOGRAPHY.fontSizeSmall, color: COLORS.textMuted, lineHeight: 17, marginTop: 2 },
+  ratePreview: { backgroundColor: COLORS.background, borderRadius: 6, padding: SPACING.sm, marginVertical: SPACING.sm },
+  ratePreviewTitle: { fontSize: TYPOGRAPHY.fontSizeSmall, color: COLORS.textLight, fontWeight: '700', marginBottom: SPACING.xs },
+  ratePreviewRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 2 },
+  ratePreviewLabel: { fontSize: TYPOGRAPHY.fontSizeSmall, color: COLORS.textLight },
+  ratePreviewValue: { fontSize: TYPOGRAPHY.fontSizeSmall, color: COLORS.text, fontWeight: '700' },
   weekdayRow: { flexDirection: 'row', gap: 3 },
   weekdayButton: { flex: 1, height: 38, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: COLORS.border, borderRadius: 6 },
   weekdayButtonActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },

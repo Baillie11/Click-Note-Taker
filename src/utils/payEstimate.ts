@@ -26,6 +26,16 @@ export interface PayEstimate {
   gross: number;
   tax: number;
   net: number;
+  superannuation: number;
+}
+
+export interface DerivedPayRates {
+  ordinary: number;
+  afternoon: number;
+  night: number;
+  saturday: number;
+  sunday: number;
+  publicHoliday: number;
 }
 
 const TAX_SCALE_1 = [
@@ -67,6 +77,23 @@ function awardBaseRate(settings: PaySettings): number {
     return settings.hourlyRate / 1.25;
   }
   return settings.hourlyRate;
+}
+
+function roundMoney(value: number): number {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
+export function getDerivedPayRates(settings: PaySettings): DerivedPayRates {
+  const base = awardBaseRate(settings);
+  const casual = settings.employmentType === 'casual';
+  return {
+    ordinary: roundMoney(base * (casual ? 1.25 : 1)),
+    afternoon: roundMoney(base * (casual ? 1.375 : 1.125)),
+    night: roundMoney(base * (casual ? 1.4 : 1.15)),
+    saturday: roundMoney(base * (casual ? 1.75 : 1.5)),
+    sunday: roundMoney(base * (casual ? 2.25 : 2)),
+    publicHoliday: roundMoney(base * (casual ? 2.75 : 2.5)),
+  };
 }
 
 function getShiftRateForDate(
@@ -122,7 +149,7 @@ export function estimatePay(
       const segmentEnd = nextMidnight < end ? nextMidnight : end;
       const segmentHours = (segmentEnd.getTime() - cursor.getTime()) / 3600000;
       const segmentRate = getShiftRateForDate(shiftStart, shiftEnd, cursor, settings.employmentType, isPublicHoliday);
-      gross += segmentHours * baseRate * segmentRate.multiplier;
+      gross += segmentHours * roundMoney(baseRate * segmentRate.multiplier);
       labels.add(segmentRate.label);
       cursor = segmentEnd;
     }
@@ -146,9 +173,16 @@ export function estimatePay(
     }];
   });
   const hours = shifts.reduce((sum, shift) => sum + shift.hours, 0);
-  const gross = shifts.reduce((sum, shift) => sum + shift.gross, 0);
+  const gross = roundMoney(shifts.reduce((sum, shift) => sum + shift.gross, 0));
   const tax = estimatePaygWithholding(gross, settings.payPeriodFrequency, settings.claimsTaxFreeThreshold);
-  return { shifts, hours, gross, tax, net: Math.max(0, gross - tax) };
+  return {
+    shifts,
+    hours,
+    gross,
+    tax,
+    net: Math.max(0, gross - tax),
+    superannuation: roundMoney(gross * 0.12),
+  };
 }
 
 export function estimatePaygWithholding(
