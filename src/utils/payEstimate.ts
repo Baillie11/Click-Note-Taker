@@ -17,6 +17,7 @@ export interface ShiftPayEstimate {
   paidStart: string;
   paidEnd: string;
   usesScheduledShift: boolean;
+  minimumApplied: boolean;
 }
 
 export interface PayEstimate {
@@ -108,7 +109,9 @@ export function estimatePay(
     const paidEnd = scheduled?.end || note.timeOut;
     const shiftStart = new Date(paidStart);
     const shiftEnd = new Date(paidEnd);
-    const hours = Math.max(0, (shiftEnd.getTime() - shiftStart.getTime()) / 3600000);
+    const scheduledHours = Math.max(0, (shiftEnd.getTime() - shiftStart.getTime()) / 3600000);
+    const minimumApplies = settings.employmentType !== 'fullTime';
+    const hours = minimumApplies ? Math.max(scheduledHours, settings.minimumPaidHours) : scheduledHours;
     const isPublicHoliday = publicHolidays.has(note.id);
     let cursor = new Date(shiftStart);
     const end = new Date(shiftEnd);
@@ -123,6 +126,9 @@ export function estimatePay(
       labels.add(segmentRate.label);
       cursor = segmentEnd;
     }
+    if (scheduledHours > 0 && hours > scheduledHours) {
+      gross *= hours / scheduledHours;
+    }
     const rate = hours ? gross / hours : 0;
     const multiplier = baseRate ? rate / baseRate : 0;
     return [{
@@ -136,6 +142,7 @@ export function estimatePay(
       paidStart,
       paidEnd,
       usesScheduledShift: Boolean(scheduled),
+      minimumApplied: hours > scheduledHours,
     }];
   });
   const hours = shifts.reduce((sum, shift) => sum + shift.hours, 0);

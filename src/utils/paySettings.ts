@@ -9,6 +9,7 @@ export const DEFAULT_PAY_SETTINGS: PaySettings = {
   payPeriodFrequency: 'weekly',
   weekStartsOn: 1,
   claimsTaxFreeThreshold: true,
+  minimumPaidHours: 3,
   publicHolidayNoteIds: [],
 };
 

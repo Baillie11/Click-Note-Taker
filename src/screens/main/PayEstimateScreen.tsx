@@ -174,6 +174,24 @@ export function PayEstimateScreen() {
               </View>
             )}
 
+            {settings.employmentType !== 'fullTime' && (
+              <>
+                <Text style={styles.label}>Minimum paid shift</Text>
+                <View style={styles.segmentedRow}>
+                  {[2, 3].map(value => (
+                    <TouchableOpacity
+                      key={value}
+                      style={[styles.segment, settings.minimumPaidHours === value && styles.segmentActive]}
+                      onPress={() => updateSetting('minimumPaidHours', value)}
+                    >
+                      <Text style={[styles.segmentText, settings.minimumPaidHours === value && styles.segmentTextActive]}>{value} hours</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                <Text style={styles.helper}>Defaults to your employer's 3-hour minimum. SCHADS minimums vary by service stream.</Text>
+              </>
+            )}
+
             <Text style={styles.label}>Pay frequency</Text>
             <View style={styles.segmentedRow}>
               {FREQUENCIES.map(item => (
@@ -260,6 +278,7 @@ export function PayEstimateScreen() {
                       {shift.usesScheduledShift ? 'Scheduled shift time' : 'Recorded time (no matching client shift)'}
                     </Text>
                     <Text style={styles.shiftRate}>{shift.rateLabel} · {hours(shift.hours)} · {money(shift.rate)}/hr</Text>
+                    {shift.minimumApplied && <Text style={styles.minimumLabel}>{settings.minimumPaidHours}-hour minimum applied</Text>}
                     <TouchableOpacity style={styles.holidayToggle} onPress={() => togglePublicHoliday(shift.note.id)} accessibilityRole="checkbox" accessibilityState={{ checked: shift.isPublicHoliday }}>
                       <View style={[styles.checkbox, shift.isPublicHoliday && styles.checkboxChecked]}>{shift.isPublicHoliday && <Text style={styles.checkmark}>✓</Text>}</View>
                       <Text style={styles.holidayText}>Public holiday</Text>
@@ -334,6 +353,7 @@ const styles = StyleSheet.create({
   scheduleSource: { fontSize: TYPOGRAPHY.fontSizeSmall, color: '#276749', fontWeight: '600', marginTop: 2 },
   fallbackSource: { fontSize: TYPOGRAPHY.fontSizeSmall, color: '#975A16', fontWeight: '600', marginTop: 2 },
   shiftRate: { fontSize: TYPOGRAPHY.fontSizeSmall, color: COLORS.primary, marginTop: SPACING.xs },
+  minimumLabel: { fontSize: TYPOGRAPHY.fontSizeSmall, color: '#975A16', fontWeight: '700', marginTop: 2 },
   shiftGross: { fontSize: TYPOGRAPHY.fontSizeBase, color: COLORS.text, fontWeight: '700' },
   holidayToggle: { flexDirection: 'row', alignItems: 'center', marginTop: SPACING.sm, alignSelf: 'flex-start' },
   checkbox: { width: 20, height: 20, borderWidth: 1, borderColor: COLORS.border, borderRadius: 4, alignItems: 'center', justifyContent: 'center', marginRight: SPACING.xs },

@@ -187,5 +187,6 @@ export interface PaySettings {
   payPeriodFrequency: PayPeriodFrequency;
   weekStartsOn: number;
   claimsTaxFreeThreshold: boolean;
+  minimumPaidHours: number;
   publicHolidayNoteIds: string[];
 }
