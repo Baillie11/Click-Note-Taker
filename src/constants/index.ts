@@ -57,6 +57,9 @@ export const SPACING = {
   xxl: 48,
 } as const;
 
+// Some Android devices report a zero bottom inset while the navigation bar is visible.
+export const MIN_BOTTOM_SAFE_AREA = SPACING.lg;
+
 // Autosave interval in milliseconds
 export const AUTOSAVE_INTERVAL = 5000;
 

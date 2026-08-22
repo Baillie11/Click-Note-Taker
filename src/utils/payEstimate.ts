@@ -22,11 +22,19 @@ export interface ShiftPayEstimate {
 
 export interface PayEstimate {
   shifts: ShiftPayEstimate[];
+  days: DailyPayEstimate[];
   hours: number;
   gross: number;
   tax: number;
   net: number;
   superannuation: number;
+}
+
+export interface DailyPayEstimate {
+  date: string;
+  hours: number;
+  gross: number;
+  shiftCount: number;
 }
 
 export interface DerivedPayRates {
@@ -174,9 +182,20 @@ export function estimatePay(
   });
   const hours = shifts.reduce((sum, shift) => sum + shift.hours, 0);
   const gross = roundMoney(shifts.reduce((sum, shift) => sum + shift.gross, 0));
+  const days = Object.values(shifts.reduce<Record<string, DailyPayEstimate>>((result, shift) => {
+    const start = new Date(shift.paidStart);
+    const key = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-${String(start.getDate()).padStart(2, '0')}`;
+    const current = result[key] || { date: shift.paidStart, hours: 0, gross: 0, shiftCount: 0 };
+    current.hours += shift.hours;
+    current.gross = roundMoney(current.gross + shift.gross);
+    current.shiftCount += 1;
+    result[key] = current;
+    return result;
+  }, {})).sort((first, second) => new Date(first.date).getTime() - new Date(second.date).getTime());
   const tax = estimatePaygWithholding(gross, settings.payPeriodFrequency, settings.claimsTaxFreeThreshold);
   return {
     shifts,
+    days,
     hours,
     gross,
     tax,

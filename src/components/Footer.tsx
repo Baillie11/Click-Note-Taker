@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { APP_TAGLINE, COLORS, TYPOGRAPHY, SPACING } from '../constants';
+import { APP_TAGLINE, COLORS, TYPOGRAPHY, SPACING, MIN_BOTTOM_SAFE_AREA } from '../constants';
 import { openCompanyWebsite } from '../utils/links';
 
 interface FooterProps {
@@ -12,7 +12,7 @@ export function Footer({ showTagline = true }: FooterProps) {
   const insets = useSafeAreaInsets();
 
   return (
-    <View style={[styles.container, { paddingBottom: Math.max(insets.bottom, SPACING.sm) }]}>
+    <View style={[styles.container, { paddingBottom: Math.max(insets.bottom, MIN_BOTTOM_SAFE_AREA) }]}>
       {showTagline && (
         <TouchableOpacity onPress={openCompanyWebsite} activeOpacity={0.7}>
           <Text style={styles.tagline}>{APP_TAGLINE}</Text>

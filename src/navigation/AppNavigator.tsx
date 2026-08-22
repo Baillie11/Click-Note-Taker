@@ -8,7 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAuth } from '../context/AuthContext';
 import { RootStackParamList, MainTabParamList } from '../types';
-import { COLORS } from '../constants';
+import { COLORS, MIN_BOTTOM_SAFE_AREA } from '../constants';
 
 // Auth Screens
 import { PinSetupScreen } from '../screens/auth/PinSetupScreen';
@@ -37,9 +37,9 @@ function MainTabs() {
         tabBarStyle: {
           backgroundColor: COLORS.surface,
           borderTopColor: COLORS.border,
-          paddingBottom: Math.max(insets.bottom, 5),
+          paddingBottom: Math.max(insets.bottom, MIN_BOTTOM_SAFE_AREA),
           paddingTop: 5,
-          height: 56 + Math.max(insets.bottom, 5),
+          height: 56 + Math.max(insets.bottom, MIN_BOTTOM_SAFE_AREA),
         },
         tabBarLabelStyle: {
           fontSize: 12,

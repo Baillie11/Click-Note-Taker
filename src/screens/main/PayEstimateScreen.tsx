@@ -44,6 +44,14 @@ function hours(value: number): string {
   return `${value.toFixed(2)} hrs`;
 }
 
+function dayLabel(value: string): string {
+  return new Date(value).toLocaleDateString('en-AU', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'short',
+  });
+}
+
 export function PayEstimateScreen() {
   const [settings, setSettings] = useState<PaySettings>(DEFAULT_PAY_SETTINGS);
   const [rateInput, setRateInput] = useState('');
@@ -274,6 +282,21 @@ export function PayEstimateScreen() {
                 <View style={styles.summaryItem}><Text style={styles.summaryLabel}>Super (12%)</Text><Text style={styles.summaryValue}>{money(estimate.superannuation)}</Text></View>
               </View>
 
+              <Text style={styles.listTitle}>Daily Totals</Text>
+              <View style={styles.dailyTotals}>
+                {estimate.days.map(day => (
+                  <View key={day.date} style={styles.dailyRow}>
+                    <View style={styles.dailyCopy}>
+                      <Text style={styles.dailyDay}>{dayLabel(day.date)}</Text>
+                      <Text style={styles.dailyHours}>
+                        {hours(day.hours)} · {day.shiftCount} shift{day.shiftCount === 1 ? '' : 's'}
+                      </Text>
+                    </View>
+                    <Text style={styles.dailyGross}>{money(day.gross)}</Text>
+                  </View>
+                ))}
+              </View>
+
               <Text style={styles.listTitle}>Completed Shifts ({estimate.shifts.length})</Text>
               {estimate.shifts.length === 0 ? (
                 <Text style={styles.emptyText}>No completed shift notes were found in this pay period.</Text>
@@ -360,6 +383,12 @@ const styles = StyleSheet.create({
   summaryValue: { fontSize: TYPOGRAPHY.fontSizeLarge, color: COLORS.text, fontWeight: '700', marginTop: SPACING.xs },
   netValue: { fontSize: TYPOGRAPHY.fontSizeLarge, color: '#276749', fontWeight: '700', marginTop: SPACING.xs },
   listTitle: { fontSize: TYPOGRAPHY.fontSizeMedium, fontWeight: '700', color: COLORS.text, marginBottom: SPACING.sm },
+  dailyTotals: { backgroundColor: COLORS.surface, marginBottom: SPACING.lg, borderWidth: 1, borderColor: COLORS.border, borderRadius: 8, overflow: 'hidden' },
+  dailyRow: { minHeight: 64, flexDirection: 'row', alignItems: 'center', paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLORS.border },
+  dailyCopy: { flex: 1, marginRight: SPACING.sm },
+  dailyDay: { fontSize: TYPOGRAPHY.fontSizeBase, color: COLORS.text, fontWeight: '700' },
+  dailyHours: { fontSize: TYPOGRAPHY.fontSizeSmall, color: COLORS.textLight, marginTop: 2 },
+  dailyGross: { fontSize: TYPOGRAPHY.fontSizeBase, color: COLORS.primary, fontWeight: '700' },
   emptyText: { color: COLORS.textMuted, textAlign: 'center', paddingVertical: SPACING.xl },
   shiftRow: { flexDirection: 'row', backgroundColor: COLORS.surface, borderBottomWidth: 1, borderBottomColor: COLORS.border, padding: SPACING.md },
   shiftMain: { flex: 1, marginRight: SPACING.sm },
