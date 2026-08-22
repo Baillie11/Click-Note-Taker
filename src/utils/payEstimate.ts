@@ -1,4 +1,5 @@
-import { EmploymentType, Note, PayPeriodFrequency, PaySettings } from '../types';
+import { Client, EmploymentType, Note, PayPeriodFrequency, PaySettings } from '../types';
+import { getScheduledShiftWindow, parseClientShifts } from './clientShifts';
 
 export interface PayPeriod {
   start: Date;
@@ -13,6 +14,9 @@ export interface ShiftPayEstimate {
   gross: number;
   rateLabel: string;
   isPublicHoliday: boolean;
+  paidStart: string;
+  paidEnd: string;
+  usesScheduledShift: boolean;
 }
 
 export interface PayEstimate {
@@ -65,7 +69,8 @@ function awardBaseRate(settings: PaySettings): number {
 }
 
 function getShiftRateForDate(
-  note: Note,
+  shiftStart: Date,
+  shiftEnd: Date,
   date: Date,
   employmentType: EmploymentType,
   isPublicHoliday: boolean
@@ -73,15 +78,13 @@ function getShiftRateForDate(
   const casual = employmentType === 'casual';
   if (isPublicHoliday) return { multiplier: casual ? 2.75 : 2.5, label: 'Public holiday' };
 
-  const start = new Date(note.timeIn);
-  const end = new Date(note.timeOut!);
   const day = date.getDay();
   if (day === 6) return { multiplier: casual ? 1.75 : 1.5, label: 'Saturday' };
   if (day === 0) return { multiplier: casual ? 2.25 : 2, label: 'Sunday' };
 
-  const endMinutes = end.getHours() * 60 + end.getMinutes();
-  const crossesMidnight = end.getDate() !== start.getDate() || end.getMonth() !== start.getMonth();
-  if (crossesMidnight || start.getHours() < 6) {
+  const endMinutes = shiftEnd.getHours() * 60 + shiftEnd.getMinutes();
+  const crossesMidnight = shiftEnd.getDate() !== shiftStart.getDate() || shiftEnd.getMonth() !== shiftStart.getMonth();
+  if (crossesMidnight || shiftStart.getHours() < 6) {
     return { multiplier: casual ? 1.4 : 1.15, label: 'Night shift' };
   }
   if (endMinutes > 20 * 60) {
@@ -90,29 +93,50 @@ function getShiftRateForDate(
   return { multiplier: casual ? 1.25 : 1, label: 'Ordinary' };
 }
 
-export function estimatePay(notes: Note[], settings: PaySettings): PayEstimate {
+export function estimatePay(
+  notes: Note[],
+  settings: PaySettings,
+  clients: Record<string, Client> = {}
+): PayEstimate {
   const baseRate = awardBaseRate(settings);
   const publicHolidays = new Set(settings.publicHolidayNoteIds);
   const shifts = notes.flatMap(note => {
     if (!note.timeOut) return [];
-    const hours = Math.max(0, (new Date(note.timeOut).getTime() - new Date(note.timeIn).getTime()) / 3600000);
+    const client = clients[note.clientId];
+    const scheduled = getScheduledShiftWindow(note.timeIn, parseClientShifts(client?.shifts));
+    const paidStart = scheduled?.start || note.timeIn;
+    const paidEnd = scheduled?.end || note.timeOut;
+    const shiftStart = new Date(paidStart);
+    const shiftEnd = new Date(paidEnd);
+    const hours = Math.max(0, (shiftEnd.getTime() - shiftStart.getTime()) / 3600000);
     const isPublicHoliday = publicHolidays.has(note.id);
-    let cursor = new Date(note.timeIn);
-    const end = new Date(note.timeOut);
+    let cursor = new Date(shiftStart);
+    const end = new Date(shiftEnd);
     let gross = 0;
     const labels = new Set<string>();
     while (cursor < end) {
       const nextMidnight = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate() + 1);
       const segmentEnd = nextMidnight < end ? nextMidnight : end;
       const segmentHours = (segmentEnd.getTime() - cursor.getTime()) / 3600000;
-      const segmentRate = getShiftRateForDate(note, cursor, settings.employmentType, isPublicHoliday);
+      const segmentRate = getShiftRateForDate(shiftStart, shiftEnd, cursor, settings.employmentType, isPublicHoliday);
       gross += segmentHours * baseRate * segmentRate.multiplier;
       labels.add(segmentRate.label);
       cursor = segmentEnd;
     }
     const rate = hours ? gross / hours : 0;
     const multiplier = baseRate ? rate / baseRate : 0;
-    return [{ note, hours, multiplier, rate, gross, rateLabel: [...labels].join(' / '), isPublicHoliday }];
+    return [{
+      note,
+      hours,
+      multiplier,
+      rate,
+      gross,
+      rateLabel: [...labels].join(' / '),
+      isPublicHoliday,
+      paidStart,
+      paidEnd,
+      usesScheduledShift: Boolean(scheduled),
+    }];
   });
   const hours = shifts.reduce((sum, shift) => sum + shift.hours, 0);
   const gross = shifts.reduce((sum, shift) => sum + shift.gross, 0);

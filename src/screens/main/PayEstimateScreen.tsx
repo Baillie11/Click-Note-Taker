@@ -57,7 +57,7 @@ export function PayEstimateScreen() {
     () => getCurrentPayPeriod(settings.payPeriodFrequency, settings.weekStartsOn, periodOffset),
     [settings.payPeriodFrequency, settings.weekStartsOn, periodOffset]
   );
-  const estimate = useMemo(() => estimatePay(notes, settings), [notes, settings]);
+  const estimate = useMemo(() => estimatePay(notes, settings, clients), [notes, settings, clients]);
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
@@ -254,7 +254,10 @@ export function PayEstimateScreen() {
                   <View style={styles.shiftMain}>
                     <Text style={styles.shiftClient}>{clients[shift.note.clientId]?.fullName || 'Client'}</Text>
                     <Text style={styles.shiftTime}>
-                      {formatAustralianDate(shift.note.timeIn)} · {formatAustralianTime(shift.note.timeIn)}-{formatAustralianTime(shift.note.timeOut!)}
+                      {formatAustralianDate(shift.paidStart)} · {formatAustralianTime(shift.paidStart)}-{formatAustralianTime(shift.paidEnd)}
+                    </Text>
+                    <Text style={shift.usesScheduledShift ? styles.scheduleSource : styles.fallbackSource}>
+                      {shift.usesScheduledShift ? 'Scheduled shift time' : 'Recorded time (no matching client shift)'}
                     </Text>
                     <Text style={styles.shiftRate}>{shift.rateLabel} · {hours(shift.hours)} · {money(shift.rate)}/hr</Text>
                     <TouchableOpacity style={styles.holidayToggle} onPress={() => togglePublicHoliday(shift.note.id)} accessibilityRole="checkbox" accessibilityState={{ checked: shift.isPublicHoliday }}>
@@ -328,6 +331,8 @@ const styles = StyleSheet.create({
   shiftMain: { flex: 1, marginRight: SPACING.sm },
   shiftClient: { fontSize: TYPOGRAPHY.fontSizeBase, fontWeight: '700', color: COLORS.text },
   shiftTime: { fontSize: TYPOGRAPHY.fontSizeSmall, color: COLORS.textLight, marginTop: 2 },
+  scheduleSource: { fontSize: TYPOGRAPHY.fontSizeSmall, color: '#276749', fontWeight: '600', marginTop: 2 },
+  fallbackSource: { fontSize: TYPOGRAPHY.fontSizeSmall, color: '#975A16', fontWeight: '600', marginTop: 2 },
   shiftRate: { fontSize: TYPOGRAPHY.fontSizeSmall, color: COLORS.primary, marginTop: SPACING.xs },
   shiftGross: { fontSize: TYPOGRAPHY.fontSizeBase, color: COLORS.text, fontWeight: '700' },
   holidayToggle: { flexDirection: 'row', alignItems: 'center', marginTop: SPACING.sm, alignSelf: 'flex-start' },

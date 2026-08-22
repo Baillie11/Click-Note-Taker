@@ -65,7 +65,10 @@ export function areShiftsDuplicates(first: ClientShift, second: ClientShift): bo
     first.endTime === second.endTime;
 }
 
-export function getScheduledShiftEnd(noteTime: string, shifts: ClientShift[]): string | undefined {
+export function getScheduledShiftWindow(
+  noteTime: string,
+  shifts: ClientShift[]
+): { start: string; end: string } | undefined {
   const noteDate = new Date(noteTime);
   const candidates = shifts
     .filter(shift => shift.weekday === noteDate.getDay())
@@ -78,5 +81,10 @@ export function getScheduledShiftEnd(noteTime: string, shifts: ClientShift[]): s
     .filter(({ start, end }) => noteDate >= new Date(start.getTime() - 2 * 60 * 60 * 1000) && noteDate <= end)
     .sort((a, b) => a.distance - b.distance);
 
-  return candidates[0]?.end.toISOString();
+  const match = candidates[0];
+  return match ? { start: match.start.toISOString(), end: match.end.toISOString() } : undefined;
+}
+
+export function getScheduledShiftEnd(noteTime: string, shifts: ClientShift[]): string | undefined {
+  return getScheduledShiftWindow(noteTime, shifts)?.end;
 }

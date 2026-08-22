@@ -210,7 +210,9 @@ export async function getCompletedNotesBetween(start: string, end: string): Prom
   const db = await getDatabase();
   return db.getAllAsync<Note>(
     `SELECT * FROM notes
-     WHERE timeOut IS NOT NULL AND timeIn >= ? AND timeIn < ?
+     WHERE timeOut IS NOT NULL
+       AND status IN ('completed', 'submitted')
+       AND timeIn >= ? AND timeIn < ?
      ORDER BY timeIn ASC`,
     [start, end]
   );
