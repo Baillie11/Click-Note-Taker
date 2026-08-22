@@ -34,6 +34,7 @@ import {
 import { 
   formatAustralianDate, 
   formatAustralianTime,
+  calculateDuration,
   getCurrentISOTimestamp,
   parseAustralianDateToISO,
 } from '../../utils/dateTime';
@@ -747,6 +748,12 @@ export function NoteEditorScreen() {
                 </TouchableOpacity>
               )}
             </View>
+            {timeOut && (
+              <View style={[styles.timeRow, styles.totalHoursRow]}>
+                <Text style={styles.totalHoursLabel}>Total Hours:</Text>
+                <Text style={styles.totalHoursValue}>{calculateDuration(timeIn, timeOut)}</Text>
+              </View>
+            )}
 
             <View style={styles.statusActions}>
               {noteStatus === 'incomplete' ? (
@@ -1453,6 +1460,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: SPACING.sm,
     marginTop: SPACING.xs,
+  },
+  totalHoursRow: {
+    marginTop: SPACING.xs,
+    paddingTop: SPACING.sm,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+  },
+  totalHoursLabel: {
+    fontSize: TYPOGRAPHY.fontSizeSmall,
+    color: COLORS.text,
+    fontWeight: '700',
+  },
+  totalHoursValue: {
+    fontSize: TYPOGRAPHY.fontSizeBase,
+    color: COLORS.primaryDark,
+    fontWeight: '700',
   },
   completeButton: {
     flex: 1,

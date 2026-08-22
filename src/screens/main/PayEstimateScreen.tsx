@@ -116,8 +116,13 @@ export function PayEstimateScreen() {
       await savePaySettings(next);
       setSettings(next);
       const nextPeriod = getCurrentPayPeriod(next.payPeriodFrequency, next.weekStartsOn, periodOffset);
-      setNotes(await getCompletedNotesBetween(nextPeriod.start.toISOString(), nextPeriod.end.toISOString()));
-      Alert.alert('Pay settings saved', 'The estimate has been recalculated.');
+      const [allClients, completedNotes] = await Promise.all([
+        getAllClients(),
+        getCompletedNotesBetween(nextPeriod.start.toISOString(), nextPeriod.end.toISOString()),
+      ]);
+      setClients(Object.fromEntries(allClients.map(client => [client.id, client])));
+      setNotes(completedNotes);
+      Alert.alert('Pay settings saved', 'The latest regular shifts and completed notes have been loaded and recalculated.');
     } finally {
       setIsSaving(false);
     }
