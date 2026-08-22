@@ -12,6 +12,7 @@ export const STORAGE_KEYS = {
   LAST_ACTIVE_TIME: 'last_active_time',
   EMERGENCY_LOCK_UNTIL: 'emergency_lock_until',
   USER_PROFILE: 'user_profile',
+  PAY_SETTINGS: 'pay_settings',
 } as const;
 
 export const EMERGENCY_LOCK_CODE = '999';

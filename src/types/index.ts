@@ -149,6 +149,7 @@ export type RootStackParamList = {
 
 export type MainTabParamList = {
   Clients: undefined;
+  Pay: undefined;
   Settings: undefined;
 };
 
@@ -174,4 +175,17 @@ export interface UserProfile {
   organization?: string;
   defaultLocation?: string;
   providerNumber?: string;
+}
+
+export type EmploymentType = 'casual' | 'partTime' | 'fullTime';
+export type PayPeriodFrequency = 'weekly' | 'fortnightly' | 'monthly';
+
+export interface PaySettings {
+  hourlyRate: number;
+  employmentType: EmploymentType;
+  rateIncludesCasualLoading: boolean;
+  payPeriodFrequency: PayPeriodFrequency;
+  weekStartsOn: number;
+  claimsTaxFreeThreshold: boolean;
+  publicHolidayNoteIds: string[];
 }

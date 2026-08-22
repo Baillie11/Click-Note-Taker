@@ -202,3 +202,16 @@ export async function getRecentNotes(limit: number = 10): Promise<Note[]> {
   );
   return result;
 }
+
+/**
+ * Get finished shifts whose start time falls within a pay period.
+ */
+export async function getCompletedNotesBetween(start: string, end: string): Promise<Note[]> {
+  const db = await getDatabase();
+  return db.getAllAsync<Note>(
+    `SELECT * FROM notes
+     WHERE timeOut IS NOT NULL AND timeIn >= ? AND timeIn < ?
+     ORDER BY timeIn ASC`,
+    [start, end]
+  );
+}

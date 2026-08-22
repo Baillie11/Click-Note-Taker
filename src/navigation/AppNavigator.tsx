@@ -18,6 +18,7 @@ import { ClientsScreen } from '../screens/main/ClientsScreen';
 import { ClientDetailScreen } from '../screens/main/ClientDetailScreen';
 import { NoteEditorScreen } from '../screens/main/NoteEditorScreen';
 import { SettingsScreen } from '../screens/main/SettingsScreen';
+import { PayEstimateScreen } from '../screens/main/PayEstimateScreen';
 import { IncidentReportsListScreen } from '../screens/main/IncidentReportsListScreen';
 import { IncidentReportEditorScreen } from '../screens/main/IncidentReportEditorScreen';
 
@@ -51,6 +52,16 @@ function MainTabs() {
           tabBarLabel: 'Clients',
           tabBarIcon: ({ color, size }) => (
             <Text style={{ fontSize: size, color }}>👥</Text>
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="Pay"
+        component={PayEstimateScreen}
+        options={{
+          tabBarLabel: 'Pay',
+          tabBarIcon: ({ color, size }) => (
+            <Text style={{ fontSize: size, color }}>$</Text>
           ),
         }}
       />
