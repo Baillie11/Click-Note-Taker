@@ -43,6 +43,10 @@ export async function scheduleNoteReminders(noteId: string, shiftEnd: string): P
   await cancelNoteReminders(noteId);
   if (!(await initializeNoteReminders())) return;
 
+  const db = await getDatabase();
+  const note = await db.getFirstAsync<{ status: string | null }>('SELECT status FROM notes WHERE id = ?', [noteId]);
+  if (!note || note.status === 'submitted') return;
+
   const finish = new Date(shiftEnd).getTime();
   const reminderOffsets = [60, 90];
   for (let minutes = 105; reminderOffsets.length < MAX_REMINDERS; minutes += 15) {
@@ -66,6 +70,12 @@ export async function scheduleNoteReminders(noteId: string, shiftEnd: string): P
         channelId: CHANNEL_ID,
       },
     })));
+
+  // Submission can occur while Android is registering this batch.
+  const latest = await db.getFirstAsync<{ status: string | null }>('SELECT status FROM notes WHERE id = ?', [noteId]);
+  if (!latest || latest.status === 'submitted') {
+    await cancelNoteReminders(noteId);
+  }
 }
 
 export async function scheduleShiftChecklistReminder(
@@ -96,7 +106,24 @@ export async function reconcileNoteReminders(): Promise<void> {
   const db = await getDatabase();
   const notes = await db.getAllAsync<{ id: string; scheduledShiftEnd: string; reminderChecklist: string }>(
     `SELECT id, scheduledShiftEnd, reminderChecklist FROM notes
-     WHERE status != 'submitted' AND scheduledShiftEnd IS NOT NULL`
+     WHERE (status IS NULL OR status != 'submitted') AND scheduledShiftEnd IS NOT NULL`
+  );
+  const openNoteIds = new Set(notes.map(note => note.id));
+  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+  await Promise.all(scheduled
+    .filter(item => {
+      const noteId = item.content.data?.noteId;
+      return typeof noteId === 'string' && !openNoteIds.has(noteId);
+    })
+    .map(item => Notifications.cancelScheduledNotificationAsync(item.identifier))
+  );
+  const presented = await Notifications.getPresentedNotificationsAsync();
+  await Promise.all(presented
+    .filter(item => {
+      const noteId = item.request.content.data?.noteId;
+      return typeof noteId === 'string' && !openNoteIds.has(noteId);
+    })
+    .map(item => Notifications.dismissNotificationAsync(item.request.identifier))
   );
   for (const note of notes) {
     await scheduleNoteReminders(note.id, note.scheduledShiftEnd);
