@@ -62,8 +62,10 @@ function parseShiftTime(text: string, period: ShiftPeriod): string | undefined {
   if (!match) return undefined;
   const hour = Number(match[1]);
   const minute = Number(match[2]);
-  if (hour < 1 || hour > 12 || minute < 0 || minute > 59) return undefined;
-  const hours24 = (hour % 12) + (period === 'PM' ? 12 : 0);
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return undefined;
+  const hours24 = hour > 12 || hour === 0
+    ? hour
+    : (hour % 12) + (period === 'PM' ? 12 : 0);
   return `${String(hours24).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
 }
 
@@ -92,7 +94,7 @@ function ShiftTimeControl({
       const current = getShiftTimeParts(value);
       setText(current.text);
       setPeriod(current.period);
-      Alert.alert('Invalid Shift Time', 'Enter a time such as 2:30, then select AM or PM.');
+      Alert.alert('Invalid Shift Time', 'Enter a time such as 2:30 and select AM or PM, or enter 14:30.');
       return;
     }
     onChange(normalized);
@@ -103,6 +105,15 @@ function ShiftTimeControl({
     commit(nextPeriod);
   };
 
+  const handleTextChange = (nextText: string) => {
+    setText(nextText);
+    const normalized = parseShiftTime(nextText, period);
+    if (normalized) {
+      setPeriod(getShiftTimeParts(normalized).period);
+      onChange(normalized);
+    }
+  };
+
   return (
     <View style={styles.shiftEditorField}>
       <Text style={styles.shiftEditorLabel}>{label}</Text>
@@ -110,7 +121,7 @@ function ShiftTimeControl({
         <TextInput
           style={styles.shiftEditorInput}
           value={text}
-          onChangeText={setText}
+          onChangeText={handleTextChange}
           onBlur={() => commit()}
           keyboardType="numbers-and-punctuation"
           placeholder="2:30"
