@@ -60,7 +60,11 @@ import {
   parseSessionSummaryPromptIds,
   serializeCustomPromptResponses,
 } from '../../utils/sessionSummaryPrompts';
-import { parseClientGoals } from '../../utils/clientGoals';
+import {
+  parseClientGoals,
+  parseSelectedGoalLabels,
+  serializeSelectedGoalLabels,
+} from '../../utils/clientGoals';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type NoteEditorRouteProp = RouteProp<RootStackParamList, 'NoteEditor'>;
@@ -583,6 +587,16 @@ export function NoteEditorScreen() {
 
   const selectedSessionSummaryPrompts = parseSessionSummaryPromptIds(client?.sessionSummaryPromptIds);
   const selectedCustomPrompts = parseCustomPrompts(client?.customSessionSummaryPrompts);
+  const clientGoals = parseClientGoals(client?.clientGoals);
+  const selectedGoalLabels = parseSelectedGoalLabels(goalsSupported);
+
+  const toggleSelectedGoal = (label: string) => {
+    const nextLabels = selectedGoalLabels.includes(label)
+      ? selectedGoalLabels.filter(existing => existing !== label)
+      : [...selectedGoalLabels, label];
+    setGoalsSupported(serializeSelectedGoalLabels(nextLabels));
+    setHasUnsavedChanges(true);
+  };
 
   const updateCustomPromptResponse = (id: string, question: string, response: string) => {
     setCustomPromptResponses(current => {
@@ -777,6 +791,28 @@ export function NoteEditorScreen() {
     submitted: [styles.timeSection, styles.timeSection_submitted],
   }[noteStatus];
 
+  const renderOptionalReportField = (
+    label: string,
+    value: string,
+    onChange: (text: string) => void,
+    placeholder = 'Optional'
+  ) => (
+    <View style={styles.field}>
+      <Text style={styles.fieldLabel}>{label}</Text>
+      <TextInput
+        style={[styles.fieldInput, styles.multilineInput]}
+        value={value}
+        onChangeText={(text) => {
+          onChange(text);
+          setHasUnsavedChanges(true);
+        }}
+        placeholder={placeholder}
+        placeholderTextColor={COLORS.textMuted}
+        multiline
+      />
+    </View>
+  );
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
@@ -941,14 +977,17 @@ export function NoteEditorScreen() {
 
           <View style={styles.field}>
             <Text style={styles.fieldLabel}>Goals Supported</Text>
-            <TextInput
-              style={[styles.fieldInput, styles.multilineInput]}
-              value={goalsSupported}
-              onChangeText={(text) => { setGoalsSupported(text); setHasUnsavedChanges(true); }}
-              placeholder="What goals were addressed?"
-              placeholderTextColor={COLORS.textMuted}
-              multiline
-            />
+            <TouchableOpacity
+              style={styles.pickerButton}
+              onPress={() => setShowGoalsPicker(true)}
+            >
+              <Text style={goalsSupported ? styles.pickerText : styles.pickerPlaceholder}>
+                {goalsSupported || (clientGoals.length > 0 ? 'Select one or more goals' : 'No goals added to client profile')}
+              </Text>
+            </TouchableOpacity>
+            {clientGoals.length === 0 && (
+              <Text style={styles.fieldHelper}>Add Support Plan Goals in the client profile first.</Text>
+            )}
           </View>
 
           <View style={styles.field}>
@@ -1109,6 +1148,60 @@ export function NoteEditorScreen() {
             >
               <Text style={styles.modalCloseButtonText}>Cancel</Text>
             </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={showGoalsPicker}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowGoalsPicker(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Select Goals Supported</Text>
+            <Text style={styles.modalHelper}>Select every goal supported during this shift.</Text>
+            <ScrollView style={styles.categoryList}>
+              {clientGoals.map(goal => {
+                const selected = selectedGoalLabels.includes(goal.label);
+                return (
+                  <TouchableOpacity
+                    key={goal.id}
+                    style={[styles.categoryItem, selected && styles.categoryItemSelected]}
+                    onPress={() => toggleSelectedGoal(goal.label)}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: selected }}
+                  >
+                    <Text style={[styles.categoryText, selected && styles.categoryTextSelected]}>
+                      {selected ? `✓ ${goal.label}` : goal.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+              {clientGoals.length === 0 && (
+                <Text style={styles.emptyPickerText}>No goals have been added to this client profile.</Text>
+              )}
+            </ScrollView>
+            <View style={styles.modalActions}>
+              {selectedGoalLabels.length > 0 && (
+                <TouchableOpacity
+                  style={[styles.modalActionButton, styles.modalClearAction]}
+                  onPress={() => {
+                    setGoalsSupported('');
+                    setHasUnsavedChanges(true);
+                  }}
+                >
+                  <Text style={styles.modalClearActionText}>Clear</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity
+                style={[styles.modalActionButton, styles.modalSaveAction]}
+                onPress={() => setShowGoalsPicker(false)}
+              >
+                <Text style={styles.modalSaveActionText}>Done</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -1289,6 +1382,42 @@ export function NoteEditorScreen() {
                   />
                 </View>
               ))}
+
+              <Text style={styles.reflectionSectionTitle}>Shift Note Details</Text>
+              {renderOptionalReportField('If Overnight - Active Awake Hours', activeHoursOvernight, setActiveHoursOvernight)}
+              {renderOptionalReportField('Behaviours of Concern', behaviorsOfConcern, setBehaviorsOfConcern)}
+              {renderOptionalReportField('How Did the Shift Work Toward the Selected Goal?', goalProgressDescription, setGoalProgressDescription)}
+              {renderOptionalReportField('Was Progress Made?', goalProgressOutcome, setGoalProgressOutcome)}
+              {renderOptionalReportField('Mood and Emotional State', moodEmotionalState, setMoodEmotionalState)}
+              {renderOptionalReportField('Physical Health Observations', physicalHealthObservations, setPhysicalHealthObservations)}
+              {renderOptionalReportField('Appetite and Fluid Intake', appetiteFluidIntake, setAppetiteFluidIntake)}
+              {renderOptionalReportField('Personal Hygiene and Grooming', hygieneGrooming, setHygieneGrooming)}
+              {renderOptionalReportField('Change from Usual Presentation', presentationChanges, setPresentationChanges)}
+
+              <Text style={styles.reflectionSectionTitle}>Community Access / Activities</Text>
+              {renderOptionalReportField('Location(s) Visited and Purpose', communityLocationPurpose, setCommunityLocationPurpose)}
+              {renderOptionalReportField('Duration of Outing', communityDuration, setCommunityDuration)}
+              {renderOptionalReportField('Client Participation and Engagement', communityParticipation, setCommunityParticipation)}
+              {renderOptionalReportField('Transport Used', transportUsed, setTransportUsed)}
+              {renderOptionalReportField('Mileage Claim Submitted', mileageClaimSubmitted, setMileageClaimSubmitted)}
+
+              <Text style={styles.reflectionSectionTitle}>Medication</Text>
+              {renderOptionalReportField('Medication Name and Dosage', medicationNameDosage, setMedicationNameDosage)}
+              {renderOptionalReportField('Time Administered', medicationTimeAdministered, setMedicationTimeAdministered)}
+              {renderOptionalReportField('Route of Administration', medicationRoute, setMedicationRoute)}
+              {renderOptionalReportField("Client's Response / Observations", medicationResponse, setMedicationResponse)}
+              {renderOptionalReportField('Medication Refused', medicationRefusal, setMedicationRefusal)}
+
+              <Text style={styles.reflectionSectionTitle}>Incidents and Reportable Events</Text>
+              {renderOptionalReportField('Incident Occurred', incidentOccurred, setIncidentOccurred)}
+              {renderOptionalReportField('Incident Description', incidentDescription, setIncidentDescription)}
+              {renderOptionalReportField('Supervisor Notified', supervisorNotified, setSupervisorNotified)}
+              {renderOptionalReportField('Incident Report Submitted in ShiftCare', incidentReportSubmitted, setIncidentReportSubmitted)}
+
+              <Text style={styles.reflectionSectionTitle}>Handover and Follow-Up</Text>
+              {renderOptionalReportField('Tasks Not Completed and Reason', tasksNotCompleted, setTasksNotCompleted)}
+              {renderOptionalReportField('Follow-Up Actions Required', followUpActions, setFollowUpActions)}
+              {renderOptionalReportField('Handover / Information for Next Worker', handoverNotes, setHandoverNotes)}
             </ScrollView>
             <View style={styles.reflectionActions}>
               <TouchableOpacity style={styles.reflectionContinueButton} onPress={() => setShowReflectionForm(false)}>
@@ -1853,6 +1982,28 @@ const styles = StyleSheet.create({
   pickerPlaceholder: {
     fontSize: TYPOGRAPHY.fontSizeBase,
     color: COLORS.textMuted,
+  },
+  modalHelper: {
+    fontSize: TYPOGRAPHY.fontSizeSmall,
+    color: COLORS.textLight,
+    lineHeight: 18,
+    marginBottom: SPACING.sm,
+  },
+  reflectionSectionTitle: {
+    fontSize: TYPOGRAPHY.fontSizeBase,
+    fontWeight: '700',
+    color: COLORS.primaryDark,
+    marginTop: SPACING.lg,
+    marginBottom: SPACING.sm,
+    paddingTop: SPACING.md,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+  },
+  emptyPickerText: {
+    fontSize: TYPOGRAPHY.fontSizeBase,
+    color: COLORS.textLight,
+    paddingVertical: SPACING.lg,
+    textAlign: 'center',
   },
   convertButton: {
     backgroundColor: COLORS.secondary,
