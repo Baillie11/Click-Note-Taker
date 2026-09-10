@@ -60,6 +60,7 @@ import {
   parseSessionSummaryPromptIds,
   serializeCustomPromptResponses,
 } from '../../utils/sessionSummaryPrompts';
+import { parseClientGoals } from '../../utils/clientGoals';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type NoteEditorRouteProp = RouteProp<RootStackParamList, 'NoteEditor'>;
@@ -110,10 +111,37 @@ export function NoteEditorScreen() {
   const [customPromptResponses, setCustomPromptResponses] = useState<CustomPromptResponse[]>([]);
   const [workerName, setWorkerName] = useState('');
   const [workerSignature, setWorkerSignature] = useState('');
+  const [activeHoursOvernight, setActiveHoursOvernight] = useState('');
+  const [behaviorsOfConcern, setBehaviorsOfConcern] = useState('');
+  const [goalProgressDescription, setGoalProgressDescription] = useState('');
+  const [goalProgressOutcome, setGoalProgressOutcome] = useState('');
+  const [moodEmotionalState, setMoodEmotionalState] = useState('');
+  const [physicalHealthObservations, setPhysicalHealthObservations] = useState('');
+  const [appetiteFluidIntake, setAppetiteFluidIntake] = useState('');
+  const [hygieneGrooming, setHygieneGrooming] = useState('');
+  const [presentationChanges, setPresentationChanges] = useState('');
+  const [communityLocationPurpose, setCommunityLocationPurpose] = useState('');
+  const [communityDuration, setCommunityDuration] = useState('');
+  const [communityParticipation, setCommunityParticipation] = useState('');
+  const [transportUsed, setTransportUsed] = useState('');
+  const [mileageClaimSubmitted, setMileageClaimSubmitted] = useState('');
+  const [medicationNameDosage, setMedicationNameDosage] = useState('');
+  const [medicationTimeAdministered, setMedicationTimeAdministered] = useState('');
+  const [medicationRoute, setMedicationRoute] = useState('');
+  const [medicationResponse, setMedicationResponse] = useState('');
+  const [medicationRefusal, setMedicationRefusal] = useState('');
+  const [incidentOccurred, setIncidentOccurred] = useState('');
+  const [incidentDescription, setIncidentDescription] = useState('');
+  const [supervisorNotified, setSupervisorNotified] = useState('');
+  const [incidentReportSubmitted, setIncidentReportSubmitted] = useState('');
+  const [tasksNotCompleted, setTasksNotCompleted] = useState('');
+  const [followUpActions, setFollowUpActions] = useState('');
+  const [handoverNotes, setHandoverNotes] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [showNDISView, setShowNDISView] = useState(false);
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
+  const [showGoalsPicker, setShowGoalsPicker] = useState(false);
   const [showTimeInEditor, setShowTimeInEditor] = useState(false);
   const [showTimeOutEditor, setShowTimeOutEditor] = useState(false);
   const [showSessionEntryTimeEditor, setShowSessionEntryTimeEditor] = useState(false);
@@ -175,6 +203,32 @@ export function NoteEditorScreen() {
     customPromptResponses,
     workerName,
     workerSignature,
+    activeHoursOvernight,
+    behaviorsOfConcern,
+    goalProgressDescription,
+    goalProgressOutcome,
+    moodEmotionalState,
+    physicalHealthObservations,
+    appetiteFluidIntake,
+    hygieneGrooming,
+    presentationChanges,
+    communityLocationPurpose,
+    communityDuration,
+    communityParticipation,
+    transportUsed,
+    mileageClaimSubmitted,
+    medicationNameDosage,
+    medicationTimeAdministered,
+    medicationRoute,
+    medicationResponse,
+    medicationRefusal,
+    incidentOccurred,
+    incidentDescription,
+    supervisorNotified,
+    incidentReportSubmitted,
+    tasksNotCompleted,
+    followUpActions,
+    handoverNotes,
     hasUnsavedChanges,
   ]);
 
@@ -210,6 +264,32 @@ export function NoteEditorScreen() {
           setCustomPromptResponses(parseCustomPromptResponses(noteData.customPromptResponses));
           setWorkerName(noteData.workerName || '');
           setWorkerSignature(noteData.workerSignature || '');
+          setActiveHoursOvernight(noteData.activeHoursOvernight || '');
+          setBehaviorsOfConcern(noteData.behaviorsOfConcern || '');
+          setGoalProgressDescription(noteData.goalProgressDescription || '');
+          setGoalProgressOutcome(noteData.goalProgressOutcome || '');
+          setMoodEmotionalState(noteData.moodEmotionalState || '');
+          setPhysicalHealthObservations(noteData.physicalHealthObservations || '');
+          setAppetiteFluidIntake(noteData.appetiteFluidIntake || '');
+          setHygieneGrooming(noteData.hygieneGrooming || '');
+          setPresentationChanges(noteData.presentationChanges || '');
+          setCommunityLocationPurpose(noteData.communityLocationPurpose || '');
+          setCommunityDuration(noteData.communityDuration || '');
+          setCommunityParticipation(noteData.communityParticipation || '');
+          setTransportUsed(noteData.transportUsed || '');
+          setMileageClaimSubmitted(noteData.mileageClaimSubmitted || '');
+          setMedicationNameDosage(noteData.medicationNameDosage || '');
+          setMedicationTimeAdministered(noteData.medicationTimeAdministered || '');
+          setMedicationRoute(noteData.medicationRoute || '');
+          setMedicationResponse(noteData.medicationResponse || '');
+          setMedicationRefusal(noteData.medicationRefusal || '');
+          setIncidentOccurred(noteData.incidentOccurred || '');
+          setIncidentDescription(noteData.incidentDescription || '');
+          setSupervisorNotified(noteData.supervisorNotified || '');
+          setIncidentReportSubmitted(noteData.incidentReportSubmitted || '');
+          setTasksNotCompleted(noteData.tasksNotCompleted || '');
+          setFollowUpActions(noteData.followUpActions || '');
+          setHandoverNotes(noteData.handoverNotes || '');
         }
       } else {
         // Create a new note immediately
@@ -277,6 +357,32 @@ export function NoteEditorScreen() {
         customPromptResponses: serializeCustomPromptResponses(customPromptResponses),
         workerName,
         workerSignature,
+        activeHoursOvernight,
+        behaviorsOfConcern,
+        goalProgressDescription,
+        goalProgressOutcome,
+        moodEmotionalState,
+        physicalHealthObservations,
+        appetiteFluidIntake,
+        hygieneGrooming,
+        presentationChanges,
+        communityLocationPurpose,
+        communityDuration,
+        communityParticipation,
+        transportUsed,
+        mileageClaimSubmitted,
+        medicationNameDosage,
+        medicationTimeAdministered,
+        medicationRoute,
+        medicationResponse,
+        medicationRefusal,
+        incidentOccurred,
+        incidentDescription,
+        supervisorNotified,
+        incidentReportSubmitted,
+        tasksNotCompleted,
+        followUpActions,
+        handoverNotes,
       });
 
       setHasUnsavedChanges(false);
@@ -538,6 +644,32 @@ export function NoteEditorScreen() {
     customPromptResponses: serializeCustomPromptResponses(customPromptResponses),
     workerName,
     workerSignature,
+    activeHoursOvernight,
+    behaviorsOfConcern,
+    goalProgressDescription,
+    goalProgressOutcome,
+    moodEmotionalState,
+    physicalHealthObservations,
+    appetiteFluidIntake,
+    hygieneGrooming,
+    presentationChanges,
+    communityLocationPurpose,
+    communityDuration,
+    communityParticipation,
+    transportUsed,
+    mileageClaimSubmitted,
+    medicationNameDosage,
+    medicationTimeAdministered,
+    medicationRoute,
+    medicationResponse,
+    medicationRefusal,
+    incidentOccurred,
+    incidentDescription,
+    supervisorNotified,
+    incidentReportSubmitted,
+    tasksNotCompleted,
+    followUpActions,
+    handoverNotes,
   });
 
   const confirmReportAction = (

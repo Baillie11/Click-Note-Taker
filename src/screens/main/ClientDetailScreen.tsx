@@ -23,7 +23,7 @@ import {
   getNotesByClientId, 
   deleteNote 
 } from '../../database';
-import { Client, ClientReminderItem, ClientShift, CustomSessionSummaryPrompt, Note, NoteStatus, RootStackParamList } from '../../types';
+import { Client, ClientGoal, ClientReminderItem, ClientShift, CustomSessionSummaryPrompt, Note, NoteStatus, RootStackParamList } from '../../types';
 import { formatAustralianDateTime, getRelativeTime } from '../../utils/dateTime';
 import { parseSessionEntries } from '../../utils/sessionEntries';
 import {
@@ -43,6 +43,7 @@ import {
   serializeReminderItemIds,
   serializeReminderItems,
 } from '../../utils/clientReminders';
+import { parseClientGoals, serializeClientGoals } from '../../utils/clientGoals';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type ClientDetailRouteProp = RouteProp<RootStackParamList, 'ClientDetail'>;
@@ -217,6 +218,8 @@ export function ClientDetailScreen() {
   const [editReminderItemIds, setEditReminderItemIds] = useState<string[]>([]);
   const [editCustomReminderItems, setEditCustomReminderItems] = useState<ClientReminderItem[]>([]);
   const [newCustomReminderItem, setNewCustomReminderItem] = useState('');
+  const [editClientGoals, setEditClientGoals] = useState<ClientGoal[]>([]);
+  const [newClientGoal, setNewClientGoal] = useState('');
   const [editNotes, setEditNotes] = useState('');
   const editModalScrollRef = useRef<ScrollView>(null);
 
@@ -238,6 +241,7 @@ export function ClientDetailScreen() {
         setEditShifts(parseClientShifts(clientData.shifts));
         setEditReminderItemIds(parseReminderItemIds(clientData.reminderItemIds));
         setEditCustomReminderItems(parseCustomReminderItems(clientData.customReminderItems));
+        setEditClientGoals(parseClientGoals(clientData.clientGoals));
         setEditNotes(clientData.notes || '');
       }
       const notesData = await getNotesByClientId(clientId);
@@ -272,6 +276,7 @@ export function ClientDetailScreen() {
         shifts: serializeClientShifts(editShifts),
         reminderItemIds: serializeReminderItemIds(editReminderItemIds),
         customReminderItems: serializeReminderItems(editCustomReminderItems),
+        clientGoals: serializeClientGoals(editClientGoals),
         notes: editNotes.trim() || undefined,
       });
       setShowEditModal(false);
@@ -336,6 +341,16 @@ export function ClientDetailScreen() {
       { id: `reminder-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, label },
     ]);
     setNewCustomReminderItem('');
+  };
+
+  const handleAddClientGoal = () => {
+    const label = newClientGoal.trim();
+    if (!label) return;
+    setEditClientGoals(current => [
+      ...current,
+      { id: `goal-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, label },
+    ]);
+    setNewClientGoal('');
   };
 
   const handleDeleteClient = () => {
@@ -594,6 +609,48 @@ export function ClientDetailScreen() {
                 multiline
                 numberOfLines={4}
               />
+
+              <Text style={styles.promptSectionTitle}>Support Plan Goals</Text>
+              <Text style={styles.promptSectionHelper}>
+                Add the goals from this client's Support Plan. Workers choose from this list when completing a Shift Note.
+              </Text>
+              {editClientGoals.map(goal => (
+                <View key={goal.id} style={styles.customPromptRow}>
+                  <TextInput
+                    style={[styles.modalInput, styles.customPromptInput]}
+                    value={goal.label}
+                    onChangeText={label => setEditClientGoals(current =>
+                      current.map(existing => existing.id === goal.id ? { ...existing, label } : existing)
+                    )}
+                    placeholder="Goal"
+                    placeholderTextColor={COLORS.textMuted}
+                    multiline
+                    onFocus={scrollEditModalToBottom}
+                  />
+                  <TouchableOpacity
+                    style={styles.removePromptButton}
+                    onPress={() => setEditClientGoals(current => current.filter(existing => existing.id !== goal.id))}
+                  >
+                    <Text style={styles.removePromptButtonText}>Remove</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+              <TextInput
+                style={styles.modalInput}
+                value={newClientGoal}
+                onChangeText={setNewClientGoal}
+                placeholder="Add a goal from the Support Plan"
+                placeholderTextColor={COLORS.textMuted}
+                multiline
+                onFocus={scrollEditModalToBottom}
+              />
+              <TouchableOpacity
+                style={[styles.addPromptButton, !newClientGoal.trim() && styles.addPromptButtonDisabled]}
+                onPress={handleAddClientGoal}
+                disabled={!newClientGoal.trim()}
+              >
+                <Text style={styles.addPromptButtonText}>Add Goal</Text>
+              </TouchableOpacity>
 
               <Text style={styles.promptSectionTitle}>Regular Shifts</Text>
               <Text style={styles.promptSectionHelper}>

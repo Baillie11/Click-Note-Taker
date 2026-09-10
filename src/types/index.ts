@@ -10,6 +10,7 @@ export interface Client {
   shifts?: string;
   reminderItemIds?: string;
   customReminderItems?: string;
+  clientGoals?: string;
   notes?: string;
   createdAt: string;
   updatedAt: string;
@@ -44,6 +45,11 @@ export interface ClientReminderItem {
   label: string;
 }
 
+export interface ClientGoal {
+  id: string;
+  label: string;
+}
+
 export interface NoteReminderChecklistItem extends ClientReminderItem {
   completed: boolean;
 }
@@ -72,6 +78,33 @@ export interface Note {
   reminderChecklist?: string;
   workerName?: string;
   workerSignature?: string;
+  // Expanded shift note fields (JustUs & Co Shift Note Guide)
+  activeHoursOvernight?: string;
+  behaviorsOfConcern?: string;
+  goalProgressDescription?: string;
+  goalProgressOutcome?: string;
+  moodEmotionalState?: string;
+  physicalHealthObservations?: string;
+  appetiteFluidIntake?: string;
+  hygieneGrooming?: string;
+  presentationChanges?: string;
+  communityLocationPurpose?: string;
+  communityDuration?: string;
+  communityParticipation?: string;
+  transportUsed?: string;
+  mileageClaimSubmitted?: string;
+  medicationNameDosage?: string;
+  medicationTimeAdministered?: string;
+  medicationRoute?: string;
+  medicationResponse?: string;
+  medicationRefusal?: string;
+  incidentOccurred?: string;
+  incidentDescription?: string;
+  supervisorNotified?: string;
+  incidentReportSubmitted?: string;
+  tasksNotCompleted?: string;
+  followUpActions?: string;
+  handoverNotes?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -134,6 +167,32 @@ export interface NDISProgressNote {
   customPromptResponses: string;
   workerName: string;
   workerSignature: string;
+  activeHoursOvernight: string;
+  behaviorsOfConcern: string;
+  goalProgressDescription: string;
+  goalProgressOutcome: string;
+  moodEmotionalState: string;
+  physicalHealthObservations: string;
+  appetiteFluidIntake: string;
+  hygieneGrooming: string;
+  presentationChanges: string;
+  communityLocationPurpose: string;
+  communityDuration: string;
+  communityParticipation: string;
+  transportUsed: string;
+  mileageClaimSubmitted: string;
+  medicationNameDosage: string;
+  medicationTimeAdministered: string;
+  medicationRoute: string;
+  medicationResponse: string;
+  medicationRefusal: string;
+  incidentOccurred: string;
+  incidentDescription: string;
+  supervisorNotified: string;
+  incidentReportSubmitted: string;
+  tasksNotCompleted: string;
+  followUpActions: string;
+  handoverNotes: string;
 }
 
 // Navigation types

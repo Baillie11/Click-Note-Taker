@@ -38,6 +38,32 @@ export function convertToNDISProgressNote(
       .join('\n\n'),
     workerName: note.workerName || '[Add worker name]',
     workerSignature: note.workerSignature || '[Add signature]',
+    activeHoursOvernight: note.activeHoursOvernight?.trim() || '',
+    behaviorsOfConcern: note.behaviorsOfConcern?.trim() || '',
+    goalProgressDescription: note.goalProgressDescription?.trim() || '',
+    goalProgressOutcome: note.goalProgressOutcome?.trim() || '',
+    moodEmotionalState: note.moodEmotionalState?.trim() || '',
+    physicalHealthObservations: note.physicalHealthObservations?.trim() || '',
+    appetiteFluidIntake: note.appetiteFluidIntake?.trim() || '',
+    hygieneGrooming: note.hygieneGrooming?.trim() || '',
+    presentationChanges: note.presentationChanges?.trim() || '',
+    communityLocationPurpose: note.communityLocationPurpose?.trim() || '',
+    communityDuration: note.communityDuration?.trim() || '',
+    communityParticipation: note.communityParticipation?.trim() || '',
+    transportUsed: note.transportUsed?.trim() || '',
+    mileageClaimSubmitted: note.mileageClaimSubmitted?.trim() || '',
+    medicationNameDosage: note.medicationNameDosage?.trim() || '',
+    medicationTimeAdministered: note.medicationTimeAdministered?.trim() || '',
+    medicationRoute: note.medicationRoute?.trim() || '',
+    medicationResponse: note.medicationResponse?.trim() || '',
+    medicationRefusal: note.medicationRefusal?.trim() || '',
+    incidentOccurred: note.incidentOccurred?.trim() || '',
+    incidentDescription: note.incidentDescription?.trim() || '',
+    supervisorNotified: note.supervisorNotified?.trim() || '',
+    incidentReportSubmitted: note.incidentReportSubmitted?.trim() || '',
+    tasksNotCompleted: note.tasksNotCompleted?.trim() || '',
+    followUpActions: note.followUpActions?.trim() || '',
+    handoverNotes: note.handoverNotes?.trim() || '',
   };
 }
 
@@ -72,6 +98,65 @@ export function formatNDISProgressNoteAsText(progressNote: NDISProgressNote): st
     section('MEDICATION ASSISTANCE', progressNote.medicationAssistance),
     section('NEXT STEPS', progressNote.nextSteps),
     section('ADDITIONAL SESSION DETAILS', progressNote.customPromptResponses),
+    fields([
+      ['If Overnight - Active Awake Hours', progressNote.activeHoursOvernight],
+      ['Behaviours of Concern', progressNote.behaviorsOfConcern],
+      ['How Shift Worked Toward Goal', progressNote.goalProgressDescription],
+      ['Was Progress Made', progressNote.goalProgressOutcome],
+      ['Mood and Emotional State', progressNote.moodEmotionalState],
+      ['Physical Health Observations', progressNote.physicalHealthObservations],
+      ['Appetite and Fluid Intake', progressNote.appetiteFluidIntake],
+      ['Personal Hygiene and Grooming', progressNote.hygieneGrooming],
+      ['Change from Usual Presentation', progressNote.presentationChanges],
+    ]) && `SHIFT NOTE DETAILS\n\n${fields([
+      ['If Overnight - Active Awake Hours', progressNote.activeHoursOvernight],
+      ['Behaviours of Concern', progressNote.behaviorsOfConcern],
+      ['How Shift Worked Toward Goal', progressNote.goalProgressDescription],
+      ['Was Progress Made', progressNote.goalProgressOutcome],
+      ['Mood and Emotional State', progressNote.moodEmotionalState],
+      ['Physical Health Observations', progressNote.physicalHealthObservations],
+      ['Appetite and Fluid Intake', progressNote.appetiteFluidIntake],
+      ['Personal Hygiene and Grooming', progressNote.hygieneGrooming],
+      ['Change from Usual Presentation', progressNote.presentationChanges],
+    ])}`,
+    (() => {
+      const community = fields([
+        ['Location(s) Visited and Purpose', progressNote.communityLocationPurpose],
+        ['Duration of Outing', progressNote.communityDuration],
+        ['Client Participation and Engagement', progressNote.communityParticipation],
+        ['Transport Used', progressNote.transportUsed],
+        ['Mileage Claim Submitted', progressNote.mileageClaimSubmitted],
+      ]);
+      return community ? `COMMUNITY ACCESS / ACTIVITIES\n\n${community}` : '';
+    })(),
+    (() => {
+      const medication = fields([
+        ['Medication Name and Dosage', progressNote.medicationNameDosage],
+        ['Time Administered', progressNote.medicationTimeAdministered],
+        ['Route of Administration', progressNote.medicationRoute],
+        ["Client's Response / Observations", progressNote.medicationResponse],
+        ['Medication Refused', progressNote.medicationRefusal],
+      ]);
+      return medication ? `MEDICATION\n\n${medication}` : '';
+    })(),
+    (() => {
+      const incident = fields([
+        ['Incident Occurred', progressNote.incidentOccurred],
+        ['Incident Description', progressNote.incidentDescription],
+        ['Supervisor Notified', progressNote.supervisorNotified],
+        ['Incident Report Submitted in ShiftCare', progressNote.incidentReportSubmitted],
+      ]);
+      return incident ? `INCIDENTS, ACCIDENTS AND REPORTABLE EVENTS\n\n${incident}` : '';
+    })(),
+    fields([
+      ['Tasks Not Completed and Reason', progressNote.tasksNotCompleted],
+      ['Follow-Up Actions Required', progressNote.followUpActions],
+      ['Handover / Information for Next Worker', progressNote.handoverNotes],
+    ]) && `HANDOVER AND FOLLOW-UP\n\n${fields([
+      ['Tasks Not Completed and Reason', progressNote.tasksNotCompleted],
+      ['Follow-Up Actions Required', progressNote.followUpActions],
+      ['Handover / Information for Next Worker', progressNote.handoverNotes],
+    ])}`,
     (() => {
       const workerDetails = fields([
         ['Worker Name', progressNote.workerName],
@@ -97,6 +182,7 @@ export function getIncompleteFields(progressNote: NDISProgressNote): string[] {
     { key: 'timeOut', label: 'Time Out' },
     { key: 'location', label: 'Location' },
     { key: 'supportCategory', label: 'Support Category' },
+    { key: 'goalsSupported', label: 'Goals Supported' },
     { key: 'workerName', label: 'Worker Name' },
   ];
   

@@ -119,6 +119,43 @@ const MIGRATIONS = [
       ALTER TABLE notes ADD COLUMN reminderChecklist TEXT NOT NULL DEFAULT '[]';
     `,
   },
+  {
+    version: 10,
+    up: `
+      ALTER TABLE clients ADD COLUMN clientGoals TEXT NOT NULL DEFAULT '[]';
+    `,
+  },
+  {
+    version: 11,
+    up: `
+      ALTER TABLE notes ADD COLUMN activeHoursOvernight TEXT;
+      ALTER TABLE notes ADD COLUMN behaviorsOfConcern TEXT;
+      ALTER TABLE notes ADD COLUMN goalProgressDescription TEXT;
+      ALTER TABLE notes ADD COLUMN goalProgressOutcome TEXT;
+      ALTER TABLE notes ADD COLUMN moodEmotionalState TEXT;
+      ALTER TABLE notes ADD COLUMN physicalHealthObservations TEXT;
+      ALTER TABLE notes ADD COLUMN appetiteFluidIntake TEXT;
+      ALTER TABLE notes ADD COLUMN hygieneGrooming TEXT;
+      ALTER TABLE notes ADD COLUMN presentationChanges TEXT;
+      ALTER TABLE notes ADD COLUMN communityLocationPurpose TEXT;
+      ALTER TABLE notes ADD COLUMN communityDuration TEXT;
+      ALTER TABLE notes ADD COLUMN communityParticipation TEXT;
+      ALTER TABLE notes ADD COLUMN transportUsed TEXT;
+      ALTER TABLE notes ADD COLUMN mileageClaimSubmitted TEXT;
+      ALTER TABLE notes ADD COLUMN medicationNameDosage TEXT;
+      ALTER TABLE notes ADD COLUMN medicationTimeAdministered TEXT;
+      ALTER TABLE notes ADD COLUMN medicationRoute TEXT;
+      ALTER TABLE notes ADD COLUMN medicationResponse TEXT;
+      ALTER TABLE notes ADD COLUMN medicationRefusal TEXT;
+      ALTER TABLE notes ADD COLUMN incidentOccurred TEXT;
+      ALTER TABLE notes ADD COLUMN incidentDescription TEXT;
+      ALTER TABLE notes ADD COLUMN supervisorNotified TEXT;
+      ALTER TABLE notes ADD COLUMN incidentReportSubmitted TEXT;
+      ALTER TABLE notes ADD COLUMN tasksNotCompleted TEXT;
+      ALTER TABLE notes ADD COLUMN followUpActions TEXT;
+      ALTER TABLE notes ADD COLUMN handoverNotes TEXT;
+    `,
+  },
 ];
 
 /**

@@ -19,8 +19,8 @@ export async function createClient(
   };
 
   await db.runAsync(
-    `INSERT INTO clients (id, fullName, preferredName, ndisNumber, address, sessionSummaryPromptIds, customSessionSummaryPrompts, shifts, reminderItemIds, customReminderItems, notes, createdAt, updatedAt)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO clients (id, fullName, preferredName, ndisNumber, address, sessionSummaryPromptIds, customSessionSummaryPrompts, shifts, reminderItemIds, customReminderItems, clientGoals, notes, createdAt, updatedAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       client.id,
       client.fullName,
@@ -32,6 +32,7 @@ export async function createClient(
       client.shifts || '[]',
       client.reminderItemIds || '[]',
       client.customReminderItems || '[]',
+      client.clientGoals || '[]',
       client.notes || null,
       client.createdAt,
       client.updatedAt,
@@ -85,7 +86,7 @@ export async function updateClient(
 
   await db.runAsync(
     `UPDATE clients 
-     SET fullName = ?, preferredName = ?, ndisNumber = ?, address = ?, sessionSummaryPromptIds = ?, customSessionSummaryPrompts = ?, shifts = ?, reminderItemIds = ?, customReminderItems = ?, notes = ?, updatedAt = ?
+     SET fullName = ?, preferredName = ?, ndisNumber = ?, address = ?, sessionSummaryPromptIds = ?, customSessionSummaryPrompts = ?, shifts = ?, reminderItemIds = ?, customReminderItems = ?, clientGoals = ?, notes = ?, updatedAt = ?
      WHERE id = ?`,
     [
       updated.fullName,
@@ -97,6 +98,7 @@ export async function updateClient(
       updated.shifts || '[]',
       updated.reminderItemIds || '[]',
       updated.customReminderItems || '[]',
+      updated.clientGoals || '[]',
       updated.notes || null,
       updated.updatedAt,
       id,
