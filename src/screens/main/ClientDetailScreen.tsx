@@ -343,14 +343,37 @@ export function ClientDetailScreen() {
     setNewCustomReminderItem('');
   };
 
-  const handleAddClientGoal = () => {
+  const persistClientGoals = async (goals: ClientGoal[]) => {
+    const serializedGoals = serializeClientGoals(goals);
+    await updateClient(clientId, { clientGoals: serializedGoals });
+    setEditClientGoals(goals);
+    setClient(current => current ? { ...current, clientGoals: serializedGoals } : current);
+  };
+
+  const handleAddClientGoal = async () => {
     const label = newClientGoal.trim();
     if (!label) return;
-    setEditClientGoals(current => [
-      ...current,
+    const nextGoals = [
+      ...editClientGoals,
       { id: `goal-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, label },
-    ]);
-    setNewClientGoal('');
+    ];
+    try {
+      await persistClientGoals(nextGoals);
+      setNewClientGoal('');
+    } catch (error) {
+      console.error('Error saving client goal:', error);
+      Alert.alert('Unable to save goal', 'The client goal could not be saved. Please try again.');
+    }
+  };
+
+  const handleRemoveClientGoal = async (goalId: string) => {
+    const nextGoals = editClientGoals.filter(goal => goal.id !== goalId);
+    try {
+      await persistClientGoals(nextGoals);
+    } catch (error) {
+      console.error('Error removing client goal:', error);
+      Alert.alert('Unable to remove goal', 'The client goal could not be removed. Please try again.');
+    }
   };
 
   const handleDeleteClient = () => {
@@ -629,7 +652,7 @@ export function ClientDetailScreen() {
                   />
                   <TouchableOpacity
                     style={styles.removePromptButton}
-                    onPress={() => setEditClientGoals(current => current.filter(existing => existing.id !== goal.id))}
+                    onPress={() => handleRemoveClientGoal(goal.id)}
                   >
                     <Text style={styles.removePromptButtonText}>Remove</Text>
                   </TouchableOpacity>
