@@ -12,7 +12,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import * as Clipboard from 'expo-clipboard';
@@ -89,6 +89,7 @@ function getStatusFromNote(noteData: Note): NoteStatus {
 }
 
 export function NoteEditorScreen() {
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<NoteEditorRouteProp>();
   const { clientId, noteId } = route.params;
@@ -1115,7 +1116,7 @@ export function NoteEditorScreen() {
         onRequestClose={() => setShowCategoryPicker(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { paddingBottom: insets.bottom + SPACING.lg }]}>
             <Text style={styles.modalTitle}>Select Support Category</Text>
             <ScrollView style={styles.categoryList}>
               {SUPPORT_CATEGORIES.map((category) => (
@@ -1159,7 +1160,7 @@ export function NoteEditorScreen() {
         onRequestClose={() => setShowGoalsPicker(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { paddingBottom: insets.bottom + SPACING.lg }]}>
             <Text style={styles.modalTitle}>Select Goals Supported</Text>
             <Text style={styles.modalHelper}>Select every goal supported during this shift.</Text>
             <ScrollView style={styles.categoryList}>
@@ -1223,7 +1224,7 @@ export function NoteEditorScreen() {
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="interactive"
           >
-          <View style={[styles.modalContent, styles.editNoteModalContent]}>
+          <View style={[styles.modalContent, styles.editNoteModalContent, { marginBottom: insets.bottom + SPACING.md }]}>
             <Text style={styles.modalTitle}>Edit Note</Text>
 
             <View style={styles.field}>
@@ -1290,7 +1291,7 @@ export function NoteEditorScreen() {
           style={styles.modalOverlay}
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
-          <View style={[styles.modalContent, styles.reflectionModalContent]}>
+          <View style={[styles.modalContent, styles.reflectionModalContent, { paddingBottom: insets.bottom + SPACING.md }]}>
             <Text style={styles.modalTitle}>Complete Session Summary</Text>
             <Text style={styles.reflectionIntro}>
               Complete the prompts selected in this client's profile.
@@ -1449,7 +1450,7 @@ export function NoteEditorScreen() {
             contentContainerStyle={styles.editNoteModalScrollContent}
             keyboardShouldPersistTaps="handled"
           >
-          <View style={[styles.modalContent, styles.editNoteModalContent]}>
+          <View style={[styles.modalContent, styles.editNoteModalContent, { marginBottom: insets.bottom + SPACING.md }]}>
             <Text style={styles.modalTitle}>Edit Time In</Text>
 
             <View style={styles.field}>
@@ -1508,7 +1509,7 @@ export function NoteEditorScreen() {
             contentContainerStyle={styles.editNoteModalScrollContent}
             keyboardShouldPersistTaps="handled"
           >
-          <View style={[styles.modalContent, styles.editNoteModalContent]}>
+          <View style={[styles.modalContent, styles.editNoteModalContent, { marginBottom: insets.bottom + SPACING.md }]}>
             <Text style={styles.modalTitle}>Edit Time Out</Text>
 
             <View style={styles.field}>

@@ -12,7 +12,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RouteProp, useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Footer } from '../../components/Footer';
@@ -196,6 +196,7 @@ function getNoteStatusTextStyle(status: NoteStatus) {
 }
 
 export function ClientDetailScreen() {
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<ClientDetailRouteProp>();
   const { clientId } = route.params;
@@ -581,7 +582,7 @@ export function ClientDetailScreen() {
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="interactive"
           >
-            <View style={styles.modalContent}>
+            <View style={[styles.modalContent, { paddingBottom: Math.max(insets.bottom + SPACING.xl, SPACING.xxl) }]}>
               <Text style={styles.modalTitle}>Edit Client</Text>
 
               <Text style={styles.inputLabel}>Full Name *</Text>
