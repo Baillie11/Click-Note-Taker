@@ -156,6 +156,12 @@ const MIGRATIONS = [
       ALTER TABLE notes ADD COLUMN handoverNotes TEXT;
     `,
   },
+  {
+    version: 12,
+    up: `
+      ALTER TABLE notes ADD COLUMN reportAssistantState TEXT NOT NULL DEFAULT '{}';
+    `,
+  },
 ];
 
 /**

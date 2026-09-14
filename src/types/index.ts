@@ -105,6 +105,7 @@ export interface Note {
   tasksNotCompleted?: string;
   followUpActions?: string;
   handoverNotes?: string;
+  reportAssistantState?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -202,6 +203,7 @@ export type RootStackParamList = {
   MainTabs: undefined;
   ClientDetail: { clientId: string };
   NoteEditor: { clientId: string; noteId?: string };
+  ReportAssistant: { clientId: string; noteId: string };
   IncidentReportsList: { clientId: string };
   IncidentReportEditor: { clientId: string; reportId?: string };
 };

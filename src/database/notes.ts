@@ -62,6 +62,7 @@ export async function createNote(
     tasksNotCompleted: data?.tasksNotCompleted,
     followUpActions: data?.followUpActions,
     handoverNotes: data?.handoverNotes,
+    reportAssistantState: data?.reportAssistantState || '{}',
     createdAt: now,
     updatedAt: now,
   };
@@ -77,9 +78,9 @@ export async function createNote(
       communityLocationPurpose, communityDuration, communityParticipation, transportUsed, mileageClaimSubmitted,
       medicationNameDosage, medicationTimeAdministered, medicationRoute, medicationResponse, medicationRefusal,
       incidentOccurred, incidentDescription, supervisorNotified, incidentReportSubmitted,
-      tasksNotCompleted, followUpActions, handoverNotes,
+      tasksNotCompleted, followUpActions, handoverNotes, reportAssistantState,
       createdAt, updatedAt
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       note.id,
       note.clientId,
@@ -129,6 +130,7 @@ export async function createNote(
       note.tasksNotCompleted || null,
       note.followUpActions || null,
       note.handoverNotes || null,
+      note.reportAssistantState || '{}',
       note.createdAt,
       note.updatedAt,
     ]
@@ -191,7 +193,7 @@ export async function updateNote(
       communityLocationPurpose = ?, communityDuration = ?, communityParticipation = ?, transportUsed = ?, mileageClaimSubmitted = ?,
       medicationNameDosage = ?, medicationTimeAdministered = ?, medicationRoute = ?, medicationResponse = ?, medicationRefusal = ?,
       incidentOccurred = ?, incidentDescription = ?, supervisorNotified = ?, incidentReportSubmitted = ?,
-      tasksNotCompleted = ?, followUpActions = ?, handoverNotes = ?,
+      tasksNotCompleted = ?, followUpActions = ?, handoverNotes = ?, reportAssistantState = ?,
       updatedAt = ?
      WHERE id = ?`,
     [
@@ -241,6 +243,7 @@ export async function updateNote(
       updated.tasksNotCompleted || null,
       updated.followUpActions || null,
       updated.handoverNotes || null,
+      updated.reportAssistantState || '{}',
       updated.updatedAt,
       id,
     ]

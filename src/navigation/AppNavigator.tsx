@@ -21,6 +21,7 @@ import { UnlockScreen } from '../screens/auth/UnlockScreen';
 import { ClientsScreen } from '../screens/main/ClientsScreen';
 import { ClientDetailScreen } from '../screens/main/ClientDetailScreen';
 import { NoteEditorScreen } from '../screens/main/NoteEditorScreen';
+import { ReportAssistantScreen } from '../screens/main/ReportAssistantScreen';
 import { SettingsScreen } from '../screens/main/SettingsScreen';
 import { PayEstimateScreen } from '../screens/main/PayEstimateScreen';
 import { IncidentReportsListScreen } from '../screens/main/IncidentReportsListScreen';
@@ -160,6 +161,11 @@ export function AppNavigator() {
             <Stack.Screen 
               name="NoteEditor" 
               component={NoteEditorScreen}
+              options={{ animation: 'slide_from_right' }}
+            />
+            <Stack.Screen
+              name="ReportAssistant"
+              component={ReportAssistantScreen}
               options={{ animation: 'slide_from_right' }}
             />
             <Stack.Screen 

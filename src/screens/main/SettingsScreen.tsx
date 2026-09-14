@@ -23,6 +23,7 @@ import {
 import { deletePin } from '../../utils/pin';
 import { EMPTY_USER_PROFILE, getUserProfile, saveUserProfile } from '../../utils/userProfile';
 import { resetAppData } from '../../utils/resetAppData';
+import { getAiAccessCode, saveAiAccessCode } from '../../utils/aiAccess';
 import { useAuth } from '../../context/AuthContext';
 import { UserProfile } from '../../types';
 import { 
@@ -43,6 +44,7 @@ export function SettingsScreen() {
   const [gracePeriodEnabled, setGracePeriodEnabled] = useState(false);
   const [profile, setProfile] = useState<UserProfile>(EMPTY_USER_PROFILE);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [aiAccessCode, setAiAccessCode] = useState('');
 
   const showProfileHint = (title: string, message: string) => {
     Alert.alert(title, message);
@@ -66,6 +68,7 @@ export function SettingsScreen() {
 
       const userProfile = await getUserProfile();
       setProfile(userProfile);
+      setAiAccessCode(await getAiAccessCode());
     } catch (error) {
       console.error('Error loading settings:', error);
     }
@@ -89,6 +92,11 @@ export function SettingsScreen() {
     } finally {
       setIsSavingProfile(false);
     }
+  };
+
+  const handleSaveAiAccess = async () => {
+    await saveAiAccessCode(aiAccessCode);
+    Alert.alert('Saved', aiAccessCode.trim() ? 'AI assistance is configured on this device.' : 'AI assistance has been disconnected.');
   };
 
   const handleBiometricsToggle = async (value: boolean) => {
@@ -332,6 +340,21 @@ export function SettingsScreen() {
         </View>
 
         <View style={styles.section}>
+          <Text style={styles.sectionTitle}>AI Report Assistance</Text>
+          <Text style={styles.infoText}>The access code connects this device to Click eCommerce's protected report assistant. It is stored securely and is not your OpenAI API key.</Text>
+          <View style={[styles.field, { marginTop: SPACING.md }]}>
+            <View style={styles.fieldLabelRow}>
+              <Text style={styles.fieldLabel}>AI Access Code</Text>
+              <TouchableOpacity style={styles.infoButton} onPress={() => showProfileHint('AI Access Code', 'A private code supplied by Click eCommerce. Client names, addresses, NDIS numbers, and profile details are not sent to the AI service.')}>
+                <Text style={styles.infoButtonText}>i</Text>
+              </TouchableOpacity>
+            </View>
+            <TextInput style={styles.fieldInput} value={aiAccessCode} onChangeText={setAiAccessCode} placeholder="Enter private access code" placeholderTextColor={COLORS.textMuted} secureTextEntry autoCapitalize="none" />
+          </View>
+          <TouchableOpacity style={styles.primaryButton} onPress={handleSaveAiAccess}><Text style={styles.primaryButtonText}>Save AI Access</Text></TouchableOpacity>
+        </View>
+
+        <View style={styles.section}>
           <Text style={styles.sectionTitle}>Security</Text>
           
           {biometricsAvailable && (
@@ -395,9 +418,11 @@ export function SettingsScreen() {
           
           <View style={styles.infoBox}>
             <Text style={styles.infoText}>
-              Notes and client information are stored locally on this device and
-              are not uploaded by Click Note Taker. Protect your device and follow
-              your organisation's privacy and record-keeping requirements.
+              Client records remain stored locally. When you choose Improve with AI,
+              the app sends only shift times, selected goals, and note content needed
+              to draft answers. It excludes client names, addresses, NDIS numbers,
+              and profile details. Protect your device and follow your organisation's
+              privacy and record-keeping requirements.
             </Text>
           </View>
 

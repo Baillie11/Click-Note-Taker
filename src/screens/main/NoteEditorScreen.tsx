@@ -567,14 +567,15 @@ export function NoteEditorScreen() {
     setShowTimeOutEditor(false);
   };
 
-  const handleFinishShift = () => {
-    const selectedPrompts = parseSessionSummaryPromptIds(client?.sessionSummaryPromptIds);
-    const customPrompts = parseCustomPrompts(client?.customSessionSummaryPrompts);
-    if (selectedPrompts.length === 0 && customPrompts.length === 0 && reminderChecklist.length === 0) {
-      handleCompleteWithReflection();
-      return;
-    }
-    setShowReflectionForm(true);
+  const handleFinishShift = async () => {
+    if (!noteIdRef.current) return;
+    const finalTimeOut = timeOut || getCurrentISOTimestamp();
+    await saveNote(true);
+    await updateNote(noteIdRef.current, { timeOut: finalTimeOut, status: 'incomplete' });
+    setTimeOut(finalTimeOut);
+    setNoteStatus('incomplete');
+    setHasUnsavedChanges(false);
+    navigation.navigate('ReportAssistant', { clientId, noteId: noteIdRef.current });
   };
 
   const handleCompleteWithReflection = () => {
