@@ -9,6 +9,8 @@ import { getNoteById, updateNote } from '../../database';
 import { Note, RootStackParamList } from '../../types';
 import { requestReportDrafts } from '../../services/reportAssistant';
 import { activeReportQuestions, parseReportState, reportProgress, ReportAssistantState, ReportQuestion } from '../../utils/reportQuestions';
+import { formatAustralianTime } from '../../utils/dateTime';
+import { parseSessionEntries } from '../../utils/sessionEntries';
 
 type ScreenRoute = RouteProp<RootStackParamList, 'ReportAssistant'>;
 type Navigation = NativeStackNavigationProp<RootStackParamList>;
@@ -43,12 +45,24 @@ export function ReportAssistantScreen() {
     await updateNote(nextNote.id, { ...nextNote, reportAssistantState: JSON.stringify(nextState) });
   };
 
+  const chronologicalNotes = useMemo(() => {
+    if (!note) return '';
+    return parseSessionEntries(note.sessionEntries)
+      .slice()
+      .sort((first, second) => first.timestamp.localeCompare(second.timestamp))
+      .map(entry => `${formatAustralianTime(entry.timestamp)} - ${entry.text.trim()}`)
+      .filter(Boolean)
+      .join('\n');
+  }, [note?.sessionEntries]);
+
   const answerText = question ? (question.id === 'shift-times'
     ? `${new Date(note!.timeIn).toLocaleString()} to ${note!.timeOut ? new Date(note!.timeOut).toLocaleString() : 'Not finished'}`
-    : String(note?.[question.field] || '')) : '';
+    : question.id === 'supports'
+      ? chronologicalNotes
+      : String(note?.[question.field] || '')) : '';
 
   const updateText = (text: string) => {
-    if (!note || !question || question.id === 'shift-times') return;
+    if (!note || !question || question.id === 'shift-times' || question.id === 'supports') return;
     setNote({ ...note, [question.field]: text });
     setState({ ...state, statuses: { ...state.statuses, [question.id]: 'unanswered' } });
   };
@@ -70,7 +84,8 @@ export function ReportAssistantScreen() {
     }
     setIsSaving(true);
     try {
-      await persist(note, { ...state, statuses: { ...state.statuses, [question.id]: 'confirmed' } });
+      const nextNote = question.id === 'supports' ? { ...note, activitiesCompleted: chronologicalNotes } : note;
+      await persist(nextNote, { ...state, statuses: { ...state.statuses, [question.id]: 'confirmed' } });
       if (index < questions.length - 1) setIndex(index + 1);
     } finally { setIsSaving(false); }
   };
@@ -79,7 +94,7 @@ export function ReportAssistantScreen() {
     if (!note) return;
     setIsDrafting(true);
     try {
-      const draftable = questions.filter(item => item.kind === 'text' && item.id !== 'shift-times');
+      const draftable = questions.filter(item => item.kind === 'text' && item.id !== 'shift-times' && item.id !== 'supports');
       const drafts = await requestReportDrafts(note, draftable);
       let nextNote = { ...note };
       const statuses = { ...state.statuses };
@@ -140,8 +155,9 @@ export function ReportAssistantScreen() {
             <Text style={styles.prompt}>{question.prompt}</Text>
             {question.kind === 'text' ? (
               <>
-                <TextInput style={[styles.input, question.id === 'shift-times' && styles.readOnly]} value={answerText} onChangeText={updateText} onBlur={() => persist(note, state).catch(() => Alert.alert('Save failed', 'This answer could not be saved. Please try again.'))} editable={question.id !== 'shift-times'} multiline textAlignVertical="top" placeholder="Add factual details from this shift" placeholderTextColor={COLORS.textMuted} />
+                <TextInput style={[styles.input, (question.id === 'shift-times' || question.id === 'supports') && styles.readOnly]} value={answerText} onChangeText={updateText} onBlur={() => persist(note, state).catch(() => Alert.alert('Save failed', 'This answer could not be saved. Please try again.'))} editable={question.id !== 'shift-times' && question.id !== 'supports'} multiline textAlignVertical="top" placeholder={question.id === 'supports' ? 'Add timestamped session notes during the shift and they will appear here in order.' : 'Add factual details from this shift'} placeholderTextColor={COLORS.textMuted} />
                 {question.id === 'shift-times' && <TouchableOpacity onPress={() => navigation.goBack()}><Text style={styles.editLink}>Edit times in shift note</Text></TouchableOpacity>}
+                {question.id === 'supports' && <Text style={styles.timelineNotice}>This response contains all timestamped session notes in chronological order. Edit the original session notes to change it.</Text>}
               </>
             ) : (
               <View style={styles.choiceRow}>{choices.map(choice => <TouchableOpacity key={choice} style={[styles.choice, state.decisions[question.id] === choice && styles.choiceSelected]} onPress={() => chooseDecision(choice)}><Text style={[styles.choiceText, state.decisions[question.id] === choice && styles.choiceTextSelected]}>{choice}</Text></TouchableOpacity>)}</View>
@@ -175,5 +191,6 @@ const styles = StyleSheet.create({
   prompt: { color: COLORS.text, fontSize: TYPOGRAPHY.fontSizeBase, lineHeight: 24, marginVertical: SPACING.md }, input: { minHeight: 180, borderWidth: 1, borderColor: COLORS.border, borderRadius: 8, backgroundColor: COLORS.background, color: COLORS.text, fontSize: TYPOGRAPHY.fontSizeBase, lineHeight: 24, padding: SPACING.md }, readOnly: { minHeight: 90, color: COLORS.textLight }, editLink: { color: COLORS.primary, fontWeight: '600', marginTop: SPACING.sm },
   choiceRow: { flexDirection: 'row', gap: SPACING.sm }, choice: { flex: 1, borderWidth: 1, borderColor: COLORS.primary, borderRadius: 8, paddingVertical: SPACING.md, alignItems: 'center' }, choiceSelected: { backgroundColor: COLORS.primary }, choiceText: { color: COLORS.primary, fontWeight: '700' }, choiceTextSelected: { color: COLORS.surface },
   reviewNotice: { color: COLORS.textLight, fontSize: TYPOGRAPHY.fontSizeSmall, lineHeight: 18, marginTop: SPACING.md }, actionRow: { flexDirection: 'row', gap: SPACING.sm, marginTop: SPACING.md }, secondaryButton: { flex: 1, borderWidth: 1, borderColor: COLORS.primary, borderRadius: 8, padding: SPACING.md, alignItems: 'center' }, secondaryText: { color: COLORS.primary, fontWeight: '700' }, primaryButton: { flex: 1, backgroundColor: COLORS.secondary, borderRadius: 8, padding: SPACING.md, alignItems: 'center' }, primaryText: { color: COLORS.surface, fontWeight: '700' },
+  timelineNotice: { color: COLORS.primary, fontSize: TYPOGRAPHY.fontSizeSmall, lineHeight: 18, marginTop: SPACING.sm },
   navigationRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: SPACING.lg }, navText: { color: COLORS.primary, fontWeight: '700' }, disabled: { color: COLORS.disabled }, finishButton: { backgroundColor: COLORS.secondary, borderRadius: 8, padding: SPACING.md, alignItems: 'center' }, finishDisabled: { backgroundColor: COLORS.textMuted }, finishText: { color: COLORS.surface, fontWeight: '700', fontSize: TYPOGRAPHY.fontSizeBase },
 });

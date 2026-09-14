@@ -76,6 +76,10 @@ export function activeReportQuestions(note: Note, state: ReportAssistantState): 
 
 export function isQuestionAnswered(note: Note, question: ReportQuestion): boolean {
   if (question.id === 'shift-times') return hasText(note.timeIn) && hasText(note.timeOut);
+  if (question.id === 'supports') {
+    try { return JSON.parse(note.sessionEntries || '[]').some((entry: { text?: string }) => hasText(entry.text)); }
+    catch { return false; }
+  }
   return hasText(String(note[question.field] || ''));
 }
 
