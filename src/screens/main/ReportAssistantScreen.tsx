@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, AppState, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RouteProp, useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -28,8 +28,12 @@ export function ReportAssistantScreen() {
   const load = useCallback(async () => {
     const loaded = await getNoteById(route.params.noteId);
     if (!loaded) return Alert.alert('Note not found', 'This shift note could not be opened.');
+    const loadedState = parseReportState(loaded.reportAssistantState);
+    const loadedQuestions = activeReportQuestions(loaded, loadedState);
+    const savedIndex = loadedQuestions.findIndex(item => item.id === loadedState.lastQuestionId);
     setNote(loaded);
-    setState(parseReportState(loaded.reportAssistantState));
+    setState(loadedState);
+    setIndex(savedIndex >= 0 ? savedIndex : 0);
   }, [route.params.noteId]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
@@ -44,6 +48,30 @@ export function ReportAssistantScreen() {
     setState(nextState);
     await updateNote(nextNote.id, { ...nextNote, reportAssistantState: JSON.stringify(nextState) });
   };
+
+  const stateAtCurrentQuestion = (baseState = state): ReportAssistantState => ({
+    ...baseState,
+    lastQuestionId: question?.id || baseState.lastQuestionId,
+  });
+
+  const moveToQuestion = async (nextIndex: number) => {
+    if (!note || questions.length === 0) return;
+    const boundedIndex = Math.max(0, Math.min(questions.length - 1, nextIndex));
+    const nextState = { ...state, lastQuestionId: questions[boundedIndex].id };
+    await persist(note, nextState);
+    setIndex(boundedIndex);
+  };
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', nextAppState => {
+      if (nextAppState !== 'active' && note) {
+        const nextState = stateAtCurrentQuestion();
+        updateNote(note.id, { ...note, reportAssistantState: JSON.stringify(nextState) })
+          .catch(error => console.error('Could not preserve report position:', error));
+      }
+    });
+    return () => subscription.remove();
+  }, [note, state, question?.id]);
 
   const chronologicalNotes = useMemo(() => {
     if (!note) return '';
@@ -64,7 +92,7 @@ export function ReportAssistantScreen() {
   const updateText = (text: string) => {
     if (!note || !question || question.id === 'shift-times' || question.id === 'supports') return;
     setNote({ ...note, [question.field]: text });
-    setState({ ...state, statuses: { ...state.statuses, [question.id]: 'unanswered' } });
+    setState({ ...state, lastQuestionId: question.id, statuses: { ...state.statuses, [question.id]: 'unanswered' } });
   };
 
   const chooseDecision = async (value: string) => {
@@ -73,6 +101,7 @@ export function ReportAssistantScreen() {
       ...state,
       decisions: { ...state.decisions, [question.id]: value },
       statuses: { ...state.statuses, [question.id]: 'confirmed' as const },
+      lastQuestionId: question.id,
     };
     await persist(note, nextState);
   };
@@ -85,8 +114,13 @@ export function ReportAssistantScreen() {
     setIsSaving(true);
     try {
       const nextNote = question.id === 'supports' ? { ...note, activitiesCompleted: chronologicalNotes } : note;
-      await persist(nextNote, { ...state, statuses: { ...state.statuses, [question.id]: 'confirmed' } });
-      if (index < questions.length - 1) setIndex(index + 1);
+      const nextIndex = Math.min(index + 1, questions.length - 1);
+      await persist(nextNote, {
+        ...state,
+        statuses: { ...state.statuses, [question.id]: 'confirmed' },
+        lastQuestionId: questions[nextIndex]?.id || question.id,
+      });
+      if (index < questions.length - 1) setIndex(nextIndex);
     } finally { setIsSaving(false); }
   };
 
@@ -105,7 +139,7 @@ export function ReportAssistantScreen() {
           statuses[target.id] = 'drafted';
         }
       });
-      await persist(nextNote, { ...state, statuses, generatedAt: new Date().toISOString() });
+      await persist(nextNote, { ...state, statuses, generatedAt: new Date().toISOString(), lastQuestionId: question?.id });
       Alert.alert('Drafts ready', 'Review every draft against what actually happened, then confirm each response.');
     } catch (error) {
       Alert.alert('AI assistance unavailable', error instanceof Error ? error.message : 'Continue manually and try again later.');
@@ -135,7 +169,10 @@ export function ReportAssistantScreen() {
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()}><Text style={styles.headerAction}>Back</Text></TouchableOpacity>
+          <TouchableOpacity onPress={async () => {
+            if (note) await persist(note, stateAtCurrentQuestion());
+            navigation.goBack();
+          }}><Text style={styles.headerAction}>Back</Text></TouchableOpacity>
           <Text style={styles.headerTitle}>Report Assistant</Text>
           <Text style={styles.counter}>{index + 1}/{questions.length}</Text>
         </View>
@@ -155,7 +192,7 @@ export function ReportAssistantScreen() {
             <Text style={styles.prompt}>{question.prompt}</Text>
             {question.kind === 'text' ? (
               <>
-                <TextInput style={[styles.input, (question.id === 'shift-times' || question.id === 'supports') && styles.readOnly]} value={answerText} onChangeText={updateText} onBlur={() => persist(note, state).catch(() => Alert.alert('Save failed', 'This answer could not be saved. Please try again.'))} editable={question.id !== 'shift-times' && question.id !== 'supports'} multiline textAlignVertical="top" placeholder={question.id === 'supports' ? 'Add timestamped session notes during the shift and they will appear here in order.' : 'Add factual details from this shift'} placeholderTextColor={COLORS.textMuted} />
+                <TextInput style={[styles.input, (question.id === 'shift-times' || question.id === 'supports') && styles.readOnly]} value={answerText} onChangeText={updateText} onBlur={() => persist(note, stateAtCurrentQuestion()).catch(() => Alert.alert('Save failed', 'This answer could not be saved. Please try again.'))} editable={question.id !== 'shift-times' && question.id !== 'supports'} multiline textAlignVertical="top" placeholder={question.id === 'supports' ? 'Add timestamped session notes during the shift and they will appear here in order.' : 'Add factual details from this shift'} placeholderTextColor={COLORS.textMuted} />
                 {question.id === 'shift-times' && <TouchableOpacity onPress={() => navigation.goBack()}><Text style={styles.editLink}>Edit times in shift note</Text></TouchableOpacity>}
                 {question.id === 'supports' && <Text style={styles.timelineNotice}>This response contains all timestamped session notes in chronological order. Edit the original session notes to change it.</Text>}
               </>
@@ -169,8 +206,8 @@ export function ReportAssistantScreen() {
             {question.kind === 'text' && <TouchableOpacity style={styles.primaryButton} onPress={confirmCurrent} disabled={isSaving}><Text style={styles.primaryText}>{isSaving ? 'Saving...' : 'Confirm & next'}</Text></TouchableOpacity>}
           </View>
           <View style={styles.navigationRow}>
-            <TouchableOpacity disabled={index === 0} onPress={() => setIndex(Math.max(0, index - 1))}><Text style={[styles.navText, index === 0 && styles.disabled]}>Previous</Text></TouchableOpacity>
-            <TouchableOpacity disabled={index >= questions.length - 1} onPress={() => setIndex(Math.min(questions.length - 1, index + 1))}><Text style={[styles.navText, index >= questions.length - 1 && styles.disabled]}>Next</Text></TouchableOpacity>
+            <TouchableOpacity disabled={index === 0} onPress={() => { void moveToQuestion(index - 1); }}><Text style={[styles.navText, index === 0 && styles.disabled]}>Previous</Text></TouchableOpacity>
+            <TouchableOpacity disabled={index >= questions.length - 1} onPress={() => { void moveToQuestion(index + 1); }}><Text style={[styles.navText, index >= questions.length - 1 && styles.disabled]}>Next</Text></TouchableOpacity>
           </View>
           <TouchableOpacity style={[styles.finishButton, !progress.complete && styles.finishDisabled]} onPress={finish}><Text style={styles.finishText}>Complete End-of-Shift Report</Text></TouchableOpacity>
         </ScrollView>

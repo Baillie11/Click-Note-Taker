@@ -162,6 +162,12 @@ const MIGRATIONS = [
       ALTER TABLE notes ADD COLUMN reportAssistantState TEXT NOT NULL DEFAULT '{}';
     `,
   },
+  {
+    version: 13,
+    up: `
+      ALTER TABLE notes ADD COLUMN liveEntryDraft TEXT NOT NULL DEFAULT '';
+    `,
+  },
 ];
 
 /**

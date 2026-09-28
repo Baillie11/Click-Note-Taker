@@ -19,6 +19,7 @@ export async function createNote(
     status: data?.status || 'incomplete',
     rawContent: data?.rawContent || '',
     sessionEntries: data?.sessionEntries || '[]',
+    liveEntryDraft: data?.liveEntryDraft || '',
     audioUri: data?.audioUri,
     transcript: data?.transcript,
     timeIn: data?.timeIn || now,
@@ -69,7 +70,7 @@ export async function createNote(
 
   await db.runAsync(
     `INSERT INTO notes (
-      id, clientId, rawContent, sessionEntries, audioUri, transcript, timeIn, timeOut,
+      id, clientId, rawContent, sessionEntries, liveEntryDraft, audioUri, transcript, timeIn, timeOut,
       location, supportCategory, goalsSupported, activitiesCompleted,
       observations, risksIncidents, medicationAssistance, nextSteps,
       workerName, workerSignature, customPromptResponses, scheduledShiftEnd, reminderChecklist, status,
@@ -80,12 +81,13 @@ export async function createNote(
       incidentOccurred, incidentDescription, supervisorNotified, incidentReportSubmitted,
       tasksNotCompleted, followUpActions, handoverNotes, reportAssistantState,
       createdAt, updatedAt
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       note.id,
       note.clientId,
       note.rawContent,
       note.sessionEntries || '[]',
+      note.liveEntryDraft || '',
       note.audioUri || null,
       note.transcript || null,
       note.timeIn,
@@ -184,7 +186,7 @@ export async function updateNote(
 
   await db.runAsync(
     `UPDATE notes SET
-      rawContent = ?, sessionEntries = ?, audioUri = ?, transcript = ?, timeIn = ?, timeOut = ?,
+      rawContent = ?, sessionEntries = ?, liveEntryDraft = ?, audioUri = ?, transcript = ?, timeIn = ?, timeOut = ?,
       location = ?, supportCategory = ?, goalsSupported = ?, activitiesCompleted = ?,
       observations = ?, risksIncidents = ?, medicationAssistance = ?, nextSteps = ?,
       workerName = ?, workerSignature = ?, customPromptResponses = ?, scheduledShiftEnd = ?, reminderChecklist = ?, status = ?,
@@ -199,6 +201,7 @@ export async function updateNote(
     [
       updated.rawContent,
       updated.sessionEntries || '[]',
+      updated.liveEntryDraft || '',
       updated.audioUri || null,
       updated.transcript || null,
       updated.timeIn,

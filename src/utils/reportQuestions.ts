@@ -17,6 +17,7 @@ export interface ReportAssistantState {
   statuses: Record<string, ReportAnswerStatus>;
   decisions: Record<string, string>;
   generatedAt?: string;
+  lastQuestionId?: string;
 }
 
 const isYes = (value?: string) => value?.trim().toLowerCase() === 'yes';
@@ -29,8 +30,8 @@ export const REPORT_QUESTIONS: ReportQuestion[] = [
   { id: 'behaviours-gate', title: 'Behaviours of Concern', prompt: 'Were any behaviours of concern observed during this shift?', field: 'behaviorsOfConcern', kind: 'yes_no', required: true },
   { id: 'behaviours-detail', title: 'Behaviour Details', prompt: 'Describe only observable behaviours, context, actions taken, and outcome.', field: 'behaviorsOfConcern', kind: 'text', required: true, condition: (_note, state) => isYes(state.decisions['behaviours-gate']) },
   { id: 'goals', title: 'Goals Supported', prompt: 'Which Support Plan goal or goals were worked toward?', field: 'goalsSupported', kind: 'text', required: true },
-  { id: 'goal-actions', title: 'Working Toward Goals', prompt: 'Describe how the shift worked toward the selected goals.', field: 'goalProgressDescription', kind: 'text', required: true },
-  { id: 'goal-progress', title: 'Goal Progress', prompt: 'Was progress made? Describe specifically, or explain why not.', field: 'goalProgressOutcome', kind: 'text', required: true },
+  { id: 'goal-actions', title: 'Working Toward Goals', prompt: 'Using the selected goal from the previous answer, describe the supports and activities during this shift that worked toward that goal.', field: 'goalProgressDescription', kind: 'text', required: true },
+  { id: 'goal-progress', title: 'Goal Progress', prompt: 'Using the selected goal and the supports described in the previous answer, state what observable progress was made. If the notes do not establish progress, ask the worker for the missing observation rather than inventing an outcome.', field: 'goalProgressOutcome', kind: 'text', required: true },
   { id: 'supports', title: 'Supports Delivered', prompt: 'Give a clear, factual, chronological account of supports delivered, their order, and assistance level.', field: 'activitiesCompleted', kind: 'text', required: true },
   { id: 'mood', title: 'Mood and Emotional State', prompt: 'Describe observable mood and emotional state without diagnosis or assumptions.', field: 'moodEmotionalState', kind: 'text', required: true },
   { id: 'health', title: 'Physical Health', prompt: 'Record relevant observations of appearance, mobility, skin, pain, and any changes.', field: 'physicalHealthObservations', kind: 'text', required: true },
@@ -64,7 +65,7 @@ export const REPORT_QUESTIONS: ReportQuestion[] = [
 export function parseReportState(value?: string): ReportAssistantState {
   try {
     const parsed = JSON.parse(value || '{}');
-    return { statuses: parsed.statuses || {}, decisions: parsed.decisions || {}, generatedAt: parsed.generatedAt };
+    return { statuses: parsed.statuses || {}, decisions: parsed.decisions || {}, generatedAt: parsed.generatedAt, lastQuestionId: parsed.lastQuestionId };
   } catch {
     return { statuses: {}, decisions: {} };
   }

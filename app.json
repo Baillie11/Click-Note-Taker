@@ -2,7 +2,7 @@
   "expo": {
     "name": "Click Note Taker",
     "slug": "click-note-taker",
-    "version": "1.1.0",
+    "version": "1.1.1",
     "platforms": [
       "ios",
       "android"
@@ -16,14 +16,14 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.clickecommerce.clicknotetaker",
-      "buildNumber": "23",
+      "buildNumber": "24",
       "infoPlist": {
         "NSMicrophoneUsageDescription": "This app needs access to your microphone to record voice notes.",
         "NSFaceIDUsageDescription": "This app uses Face ID to securely unlock the app."
       }
     },
     "android": {
-      "versionCode": 27,
+      "versionCode": 28,
       "allowBackup": false,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",

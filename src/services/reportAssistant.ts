@@ -32,7 +32,11 @@ export async function requestReportDrafts(note: Note, questions: ReportQuestion[
         },
         questions: questions.map(question => ({
           id: question.id,
-          prompt: question.prompt,
+          prompt: question.id === 'goal-actions'
+            ? `${question.prompt}\nSelected goal(s): ${note.goalsSupported || 'Not supplied'}`
+            : question.id === 'goal-progress'
+              ? `${question.prompt}\nSelected goal(s): ${note.goalsSupported || 'Not supplied'}\nHow the shift worked toward the goal: ${note.goalProgressDescription || 'Not supplied'}`
+              : question.prompt,
           currentAnswer: String(note[question.field] || ''),
           answerType: question.kind,
         })),

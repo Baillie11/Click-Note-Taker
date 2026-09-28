@@ -11,6 +11,7 @@ import {
   Modal,
   KeyboardAvoidingView,
   Platform,
+  AppState,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
@@ -192,6 +193,7 @@ export function NoteEditorScreen() {
   }, [
     rawContent,
     sessionEntries,
+    liveEntryDraft,
     transcript,
     timeIn,
     timeOut,
@@ -237,6 +239,15 @@ export function NoteEditorScreen() {
     hasUnsavedChanges,
   ]);
 
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', nextAppState => {
+      if (nextAppState !== 'active' && hasUnsavedChanges) {
+        saveNote(true).catch(error => console.error('Could not preserve note draft:', error));
+      }
+    });
+    return () => subscription.remove();
+  }, [hasUnsavedChanges, liveEntryDraft]);
+
   const loadData = async () => {
     try {
       const [clientData, userProfile] = await Promise.all([
@@ -252,6 +263,7 @@ export function NoteEditorScreen() {
           noteIdRef.current = noteData.id;
           setRawContent(noteData.rawContent || '');
           setSessionEntries(parseSessionEntries(noteData.sessionEntries));
+          setLiveEntryDraft(noteData.liveEntryDraft || '');
           setAudioUri(noteData.audioUri);
           setTranscript(noteData.transcript || '');
           setTimeIn(noteData.timeIn);
@@ -336,15 +348,32 @@ export function NoteEditorScreen() {
     }
   };
 
-  const saveNote = async (isAutosave = false) => {
+  const saveNote = async (
+    isAutosave = false,
+    overrides: Partial<Note> = {},
+    commitDraft = !isAutosave
+  ) => {
     if (!noteIdRef.current) return;
 
     try {
       if (!isAutosave) setIsSaving(true);
 
+      const draftText = liveEntryDraft.trim();
+      const entriesToSave = commitDraft && draftText
+        ? [
+            ...sessionEntries,
+            {
+              id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+              timestamp: getMinuteTimestampForDate(timeIn),
+              text: draftText,
+            },
+          ]
+        : sessionEntries;
+
       await updateNote(noteIdRef.current, {
         rawContent,
-        sessionEntries: serializeSessionEntries(sessionEntries),
+        sessionEntries: serializeSessionEntries(entriesToSave),
+        liveEntryDraft: commitDraft ? '' : liveEntryDraft,
         audioUri,
         transcript,
         timeIn,
@@ -388,17 +417,24 @@ export function NoteEditorScreen() {
         tasksNotCompleted,
         followUpActions,
         handoverNotes,
+        ...overrides,
       });
 
+      if (commitDraft && draftText) {
+        setSessionEntries(entriesToSave);
+        setLiveEntryDraft('');
+      }
       setHasUnsavedChanges(false);
       if (!isAutosave) {
         Alert.alert('Saved', 'Note saved successfully');
       }
+      return true;
     } catch (error) {
       console.error('Error saving note:', error);
       if (!isAutosave) {
         Alert.alert('Error', 'Failed to save note');
       }
+      return false;
     } finally {
       if (!isAutosave) setIsSaving(false);
     }
@@ -618,17 +654,26 @@ export function NoteEditorScreen() {
     setHasUnsavedChanges(true);
   };
 
-  const handleMarkSubmitted = () => {
+  const handleMarkSubmitted = async () => {
     const submittedTimeOut = timeOut || getCurrentISOTimestamp();
-    setTimeOut(submittedTimeOut);
-    setNoteStatus('submitted');
-    setHasUnsavedChanges(true);
     if (noteIdRef.current) {
       const currentNoteId = noteIdRef.current;
-      Promise.all([
-        cancelNoteReminders(currentNoteId),
-        updateNote(currentNoteId, { status: 'submitted', timeOut: submittedTimeOut }),
-      ]).catch(error => console.error('Could not finalize submitted note:', error));
+      try {
+        setIsSaving(true);
+        const saved = await saveNote(true, { status: 'submitted', timeOut: submittedTimeOut }, true);
+        if (!saved) {
+          throw new Error('The submitted note could not be saved.');
+        }
+        await cancelNoteReminders(currentNoteId);
+        setTimeOut(submittedTimeOut);
+        setNoteStatus('submitted');
+        setHasUnsavedChanges(false);
+      } catch (error) {
+        console.error('Could not finalize submitted note:', error);
+        Alert.alert('Submission not saved', 'The note could not be marked submitted. Please try again.');
+      } finally {
+        setIsSaving(false);
+      }
     }
   };
 
@@ -645,6 +690,7 @@ export function NoteEditorScreen() {
     ...baseNote,
     rawContent,
     sessionEntries: serializeSessionEntries(sessionEntries),
+    liveEntryDraft,
     timeIn,
     timeOut,
     status: noteStatus,
@@ -1025,7 +1071,10 @@ export function NoteEditorScreen() {
                 <TextInput
                   style={[styles.fieldInput, styles.liveEntryInput]}
                   value={liveEntryDraft}
-                  onChangeText={setLiveEntryDraft}
+                  onChangeText={(text) => {
+                    setLiveEntryDraft(text);
+                    setHasUnsavedChanges(true);
+                  }}
                   placeholder="Type a live session note"
                   placeholderTextColor={COLORS.textMuted}
                   multiline

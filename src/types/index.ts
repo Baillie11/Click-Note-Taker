@@ -61,6 +61,7 @@ export interface Note {
   status: NoteStatus;
   rawContent: string;
   sessionEntries?: string;
+  liveEntryDraft?: string;
   audioUri?: string;
   transcript?: string;
   timeIn: string;
