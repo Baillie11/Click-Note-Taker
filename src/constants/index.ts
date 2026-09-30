@@ -16,7 +16,7 @@ export const STORAGE_KEYS = {
   AI_ACCESS_CODE: 'ai_access_code',
 } as const;
 
-export const REPORT_ASSISTANT_URL = 'https://www.clickecommerce.com.au/api/click-note-taker/report-assistant';
+export const REPORT_ASSISTANT_URL = 'https://www.clickecommerce.com.au/clicktrader/api/click-note-taker/report-assistant';
 
 export const EMERGENCY_LOCK_CODE = '999';
 export const EMERGENCY_LOCK_MINUTES = 15;
